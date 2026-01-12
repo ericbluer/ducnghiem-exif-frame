@@ -10,6 +10,7 @@
     <meta name="apple-mobile-web-app-title" content="Bluer Frame">
     <meta name="theme-color" content="#ffffff">
 
+    <!-- Icon App trên màn hình chính -->
     <link rel="apple-touch-icon" href="./icon.png">
     <link rel="icon" type="image/png" href="./icon.png">
 
@@ -35,7 +36,6 @@
             flex-direction: column;
         }
         
-        /* Font: Noto Serif Ethiopic */
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Ethiopic:wght@100..900&display=swap');
         
         .modal-scroll::-webkit-scrollbar { width: 4px; }
@@ -57,6 +57,11 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
+
+        // --- CẤU HÌNH LOGO MẶC ĐỊNH ---
+        // App sẽ tự động tải file "signature.png" nằm cùng thư mục
+        // Bạn hãy upload file chữ ký của bạn lên GitHub và đặt tên là signature.png
+        const DEFAULT_LOGO = "./signature.png"; 
 
         const CAMERA_DB = {
             'rx100': 2.7, 'zv-1': 2.7, 'rx10': 2.7, 'rx1': 1.0,
@@ -88,6 +93,7 @@
             ImagePlus: (p) => <Icon {...p} path="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7m4 10l-4-4-4 4m6-6l4 4m2-10v6m3-3h-6" />
         };
 
+        // --- Helpers ---
         const formatExposureTime = (time) => {
             if (!time) return '';
             if (typeof time === 'string' && time.includes('/')) return time;
@@ -153,6 +159,7 @@
                 make: '', model: '', focalLength: '', aperture: '', shutter: '', iso: '', date: ''
             });
 
+            // Settings State
             const [settings, setSettings] = useState({
                 borderWidthPercent: 15,
                 bottomPaddingPercent: 20, 
@@ -189,8 +196,13 @@
                     } catch (e) { console.error(e); }
                 }
 
+                // Check LocalStorage first, then default
                 const savedSig = localStorage.getItem('bluer_signature');
-                if (savedSig) setSignatureUrl(savedSig);
+                if (savedSig) {
+                    setSignatureUrl(savedSig);
+                } else if (DEFAULT_LOGO) {
+                    setSignatureUrl(DEFAULT_LOGO);
+                }
 
                 return () => clearInterval(checkLibs);
             }, []);
@@ -204,6 +216,12 @@
                     const img = new Image();
                     img.src = signatureUrl;
                     img.onload = () => { signatureRef.current = img; reProcessAll(); };
+                    img.onerror = () => { 
+                         // If default logo file missing, don't break app
+                         console.warn("Could not load signature image");
+                         signatureRef.current = null; 
+                         reProcessAll(); 
+                    };
                 } else {
                     signatureRef.current = null;
                     reProcessAll();
@@ -247,6 +265,8 @@
             const removeSignature = () => {
                 setSignatureUrl(null);
                 localStorage.removeItem('bluer_signature');
+                // Note: DEFAULT_LOGO will come back on reload unless we block it, 
+                // but standard behavior is "Reset to default".
             };
 
             const processQueue = async (queue) => {
@@ -301,6 +321,28 @@
             };
 
             const reProcessAll = () => { if(images.length > 0) processQueue(images); };
+
+            const openManualEdit = (img) => {
+                setEditingExifId(img.id);
+                const d = img.exif || {};
+                setManualForm({
+                    make: d.Make||'', model: d.Model||'', focalLength: d.FocalLengthIn35mmFilm||d.FocalLength||'',
+                    aperture: d.FNumber||'', shutter: d.ExposureTime?(d.ExposureTime<1?`1/${Math.round(1/d.ExposureTime)}`:d.ExposureTime):'',
+                    iso: d.ISOSpeedRatings||'', date: d.DateTimeOriginal?d.DateTimeOriginal.split(' ')[0].replace(/:/g,'-'):''
+                });
+            };
+            const saveManualExif = () => {
+                const idx = images.findIndex(i => i.id === editingExifId);
+                if (idx === -1) return;
+                const newExif = {
+                    Make: manualForm.make, Model: manualForm.model, FNumber: manualForm.aperture, ExposureTime: manualForm.shutter,
+                    ISOSpeedRatings: manualForm.iso, FocalLengthIn35mmFilm: manualForm.focalLength, FocalLength: 0,
+                    DateTimeOriginal: manualForm.date ? manualForm.date.replace(/-/g, ':') + " 00:00:00" : ''
+                };
+                setImages(p => { const n = [...p]; n[idx] = { ...n[idx], manualExif: newExif, status: 'processing' }; return n; });
+                setEditingExifId(null);
+                processSingleImage({ ...images[idx], manualExif: newExif });
+            };
 
             // --- DRAWING LOGIC ---
             const drawFrameOnCanvas = (canvas, ctx, sourceImg, exif, cfg) => {
@@ -374,7 +416,12 @@
                     if (specs.length > 0) infoParts.push(specs.join(' ')); 
                 }
                 if (cfg.showDate && exif.DateTimeOriginal) {
-                    infoParts.push(String(exif.DateTimeOriginal || '').split(' ')[0].replace(/:/g, '.'));
+                    const rawDateStr = String(exif.DateTimeOriginal || '').split(' ')[0]; // YYYY:MM:DD
+                    const parts = rawDateStr.split(':');
+                    const datePart = parts.length === 3 
+                        ? `${parts[2]}.${parts[1]}.${parts[0]}` // DD.MM.YYYY
+                        : rawDateStr.replace(/:/g, '.');
+                    infoParts.push(datePart);
                 }
                 const infoText = infoParts.join('  |  ');
 
@@ -495,27 +542,7 @@
             };
 
             // Manual Edit Handlers
-            const openManualEdit = (img) => {
-                setEditingExifId(img.id);
-                const d = img.exif || {};
-                setManualForm({
-                    make: d.Make||'', model: d.Model||'', focalLength: d.FocalLengthIn35mmFilm||d.FocalLength||'',
-                    aperture: d.FNumber||'', shutter: d.ExposureTime?(d.ExposureTime<1?`1/${Math.round(1/d.ExposureTime)}`:d.ExposureTime):'',
-                    iso: d.ISOSpeedRatings||'', date: d.DateTimeOriginal?d.DateTimeOriginal.split(' ')[0].replace(/:/g,'-'):''
-                });
-            };
-            const saveManualExif = () => {
-                const idx = images.findIndex(i => i.id === editingExifId);
-                if (idx === -1) return;
-                const newExif = {
-                    Make: manualForm.make, Model: manualForm.model, FNumber: manualForm.aperture, ExposureTime: manualForm.shutter,
-                    ISOSpeedRatings: manualForm.iso, FocalLengthIn35mmFilm: manualForm.focalLength, FocalLength: 0,
-                    DateTimeOriginal: manualForm.date ? manualForm.date.replace(/-/g, ':') + " 00:00:00" : ''
-                };
-                setImages(p => { const n = [...p]; n[idx] = { ...n[idx], manualExif: newExif, status: 'processing' }; return n; });
-                setEditingExifId(null);
-                processSingleImage({ ...images[idx], manualExif: newExif });
-            };
+            // (Removed duplicate definitions of openManualEdit and saveManualExif)
 
             return (
                 <div className="flex flex-col h-full">
@@ -567,7 +594,7 @@
                                 <div className="p-4 overflow-y-auto modal-scroll space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="col-span-2"><label className="text-xs font-bold text-gray-500 mb-1 block">Hãng</label><input type="text" value={manualForm.make} onChange={(e) => setManualForm({...manualForm, make: e.target.value})} className="w-full p-2 border rounded-lg text-sm" placeholder="Sony..." /></div>
-                                        <div className="col-span-2"><label className="text-xs font-bold text-gray-500 mb-1 block">Model</label><input type="text" value={manualForm.model} onChange={(e) => setManualForm({...manualForm, model: e.target.value})} className="w-full p-2 border rounded-lg text-sm" placeholder="A7III..." /></div>
+                                        <div className="col-span-2"><label className="text-xs font-bold text-gray-500 mb-1 block">Tên máy</label><input type="text" value={manualForm.model} onChange={(e) => setManualForm({...manualForm, model: e.target.value})} className="w-full p-2 border rounded-lg text-sm" placeholder="A7III..." /></div>
                                         <div><label className="text-xs font-bold text-gray-500 mb-1">Tiêu cự</label><input type="text" value={manualForm.focalLength} onChange={(e) => setManualForm({...manualForm, focalLength: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
                                         <div><label className="text-xs font-bold text-gray-500 mb-1">Khẩu độ</label><input type="text" value={manualForm.aperture} onChange={(e) => setManualForm({...manualForm, aperture: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
                                         <div><label className="text-xs font-bold text-gray-500 mb-1">Tốc độ</label><input type="text" value={manualForm.shutter} onChange={(e) => setManualForm({...manualForm, shutter: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>

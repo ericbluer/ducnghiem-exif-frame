@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Bluer Exif Frame</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Bluer Frame">
+    <meta name="theme-color" content="#ffffff">
+
+    <link rel="apple-touch-icon" href="./icon.png">
+    <link rel="icon" type="image/png" href="./icon.png">
+
+    <!-- Tailwind & Libs -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        body {
+            overscroll-behavior-y: none;
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            background-color: #f9fafb;
+            user-select: none;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Font: Noto Serif Ethiopic */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Ethiopic:wght@100..900&display=swap');
+        
+        .modal-scroll::-webkit-scrollbar { width: 4px; }
+        .modal-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 20px; width: 20px;
+            border-radius: 50%; background: #2563eb; margin-top: -8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root" class="flex-1 flex flex-col h-full overflow-hidden"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const CAMERA_DB = {
+            'rx100': 2.7, 'zv-1': 2.7, 'rx10': 2.7, 'rx1': 1.0,
+            'g7 x': 2.7, 'g5 x': 2.7, 'g9 x': 2.7, 's100': 4.6, 's110': 4.6, 's120': 4.6, 'ixus': 5.6,
+            'gr ii': 1.5, 'gr iii': 1.5, 'gr digital': 4.6, 'cx': 5.6, 'caplio': 5.6,
+            'x100': 1.5, 'x-': 1.5, 'gfx': 0.79, 'x10': 3.9, 'x20': 3.9, 'x30': 3.9,
+            'lx100': 2.2, 'lx10': 2.7, 'lx15': 2.7, 'tz': 5.6, 'zs': 5.6,
+            'tg-': 5.6, 'xz-': 4.7,
+            'coolpix a': 1.5, 'p900': 5.6, 'p1000': 5.6, '1 j': 2.7, '1 v': 2.7,
+        };
+
+        const Icon = ({ path, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d={path} /></svg>
+        );
+        const Icons = {
+            Camera: (p) => <Icon {...p} path="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
+            Upload: (p) => <Icon {...p} path="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12" />,
+            ImageIcon: (p) => <Icon {...p} path="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z M8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z M21 15l-5-5L5 21" />,
+            Settings: (p) => <Icon {...p} path="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
+            Trash2: (p) => <Icon {...p} path="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6" />,
+            X: (p) => <Icon {...p} path="M18 6L6 18 M6 6l12 12" />,
+            Check: (p) => <Icon {...p} path="M20 6L9 17l-5-5" />,
+            Share: (p) => <Icon {...p} path="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8 M16 6l-4-4-4 4 M12 2v13" />,
+            AlertCircle: (p) => <Icon {...p} path="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+            FolderDown: (p) => <Icon {...p} path="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v11z M12 11v6 M9 14l3 3 3-3" />,
+            Loader2: (p) => <svg className={`${p.className} animate-spin`} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>,
+            Info: (p) => <Icon {...p} path="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+            Edit: (p) => <Icon {...p} path="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
+            ImagePlus: (p) => <Icon {...p} path="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7m4 10l-4-4-4 4m6-6l4 4m2-10v6m3-3h-6" />
+        };
+
+        const formatExposureTime = (time) => {
+            if (!time) return '';
+            if (typeof time === 'string' && time.includes('/')) return time;
+            if (time >= 1) return time.toString();
+            const common = [2, 4, 8, 15, 30, 60, 125, 250, 500, 1000, 2000, 4000, 8000];
+            let best = `1/${Math.round(1/time)}`;
+            let minErr = Math.abs(time - 1/Math.round(1/time));
+            for (const den of common) {
+                const err = Math.abs(time - 1/den);
+                if (err < minErr && err < 0.0001) { minErr = err; best = `1/${den}s`; }
+            }
+            return best.endsWith('s') ? best : `1/${Math.round(1/time)}s`;
+        };
+        const formatFNumber = (f) => {
+            if (!f) return '';
+            if (typeof f === 'string') {
+                if (f.startsWith('f/')) return f;
+                const num = parseFloat(f);
+                if (!isNaN(num)) return `f/${num}`;
+                return f;
+            }
+            return `f/${Math.round(f * 10) / 10}`;
+        };
+        const formatISO = (iso) => {
+            if (!iso) return '';
+            if (String(iso).toLowerCase().startsWith('iso')) return iso;
+            return `ISO ${iso}`;
+        };
+        const cleanModelName = (make, model) => {
+            const m = String(make || '').replace(/\0/g, '').trim();
+            let mo = String(model || '').replace(/\0/g, '').trim();
+            if (mo.toLowerCase().startsWith(m.toLowerCase())) mo = mo.substring(m.length).trim();
+            return `${m} ${mo}`.trim();
+        };
+        const formatFocalLength = (fl, fl35, make, model) => {
+            if (typeof fl === 'string' && fl.includes('mm')) return fl;
+            if (fl35 && fl35 > 0) return `${Math.round(fl35)}mm`;
+            if (fl) {
+                const mStr = (String(make || '') + ' ' + String(model || '')).toLowerCase();
+                for (const [key, factor] of Object.entries(CAMERA_DB)) {
+                    if (mStr.includes(key)) return `${Math.round(fl * factor)}mm`;
+                }
+                if (mStr.includes('fujifilm') || mStr.includes('nikon') || mStr.includes('sony')) return `${Math.round(fl * 1.5)}mm`;
+                if (mStr.includes('olympus') || mStr.includes('panasonic')) return `${Math.round(fl * 2.0)}mm`;
+                if (mStr.includes('canon')) return `${Math.round(fl * 1.6)}mm`;
+                return `${Math.round(fl)}mm`;
+            }
+            return '';
+        };
+
+        // --- MAIN APP ---
+        function App() {
+            const [images, setImages] = useState([]);
+            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+            const [editingExifId, setEditingExifId] = useState(null);
+            const [activeTab, setActiveTab] = useState('layout');
+            const [libsLoaded, setLibsLoaded] = useState(false);
+            
+            const [signatureUrl, setSignatureUrl] = useState(null);
+            const signatureRef = useRef(null);
+
+            const [manualForm, setManualForm] = useState({
+                make: '', model: '', focalLength: '', aperture: '', shutter: '', iso: '', date: ''
+            });
+
+            const [settings, setSettings] = useState({
+                borderWidthPercent: 15,
+                bottomPaddingPercent: 20, 
+                backgroundColor: '#ffffff',
+                textColor: '#222222',
+                showCameraModel: true,
+                showSettings: true,
+                showDate: false,
+                shadowEnabled: true,
+                fontFamily: '"Noto Serif Ethiopic", serif',
+                watermarkText: '', 
+                captionText: '',
+                captionBold: true,
+                captionSize: 0.75, 
+                captionSpacing: 0, 
+            });
+
+            useEffect(() => {
+                const checkLibs = setInterval(() => {
+                    if (window.EXIF) {
+                        setLibsLoaded(true);
+                        clearInterval(checkLibs);
+                    }
+                }, 100);
+
+                const savedSettings = localStorage.getItem('bluer_settings');
+                if (savedSettings) {
+                    try {
+                        const parsed = JSON.parse(savedSettings);
+                        if (!parsed.fontFamily) parsed.fontFamily = '"Noto Serif Ethiopic", serif';
+                        if (parsed.captionBold === undefined) parsed.captionBold = true;
+                        if (parsed.captionSize === undefined) parsed.captionSize = 0.75;
+                        setSettings(parsed);
+                    } catch (e) { console.error(e); }
+                }
+
+                const savedSig = localStorage.getItem('bluer_signature');
+                if (savedSig) setSignatureUrl(savedSig);
+
+                return () => clearInterval(checkLibs);
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('bluer_settings', JSON.stringify(settings));
+            }, [settings]);
+
+            useEffect(() => {
+                if (signatureUrl) {
+                    const img = new Image();
+                    img.src = signatureUrl;
+                    img.onload = () => { signatureRef.current = img; reProcessAll(); };
+                } else {
+                    signatureRef.current = null;
+                    reProcessAll();
+                }
+            }, [signatureUrl]);
+
+            const handleFileUpload = (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    const newImages = Array.from(e.target.files).map(file => ({
+                        id: Math.random().toString(36).substr(2, 9),
+                        file,
+                        previewUrl: URL.createObjectURL(file),
+                        finalUrl: null,
+                        exif: null,
+                        status: 'pending',
+                        manualExif: null
+                    }));
+                    setImages(prev => [...prev, ...newImages]);
+                    setTimeout(() => processQueue(newImages), 100);
+                    setIsSettingsOpen(false);
+                    e.target.value = '';
+                }
+            };
+
+            const handleSignatureUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    try {
+                        localStorage.setItem('bluer_signature', reader.result);
+                        setSignatureUrl(reader.result);
+                    } catch (err) {
+                        alert("File quá lớn.");
+                        setSignatureUrl(reader.result);
+                    }
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const removeSignature = () => {
+                setSignatureUrl(null);
+                localStorage.removeItem('bluer_signature');
+            };
+
+            const processQueue = async (queue) => {
+                for (const imgItem of queue) { await processSingleImage(imgItem); }
+            };
+
+            const processSingleImage = async (imgItem) => {
+                setImages(prev => prev.map(img => img.id === imgItem.id ? { ...img, status: 'processing' } : img));
+                
+                let extractedExif = imgItem.manualExif || null;
+                if (!extractedExif && !imgItem.manualExif) {
+                    try {
+                        const arrayBuffer = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = e => resolve(e.target.result);
+                            reader.onerror = reject;
+                            reader.readAsArrayBuffer(imgItem.file);
+                        });
+                        if (window.EXIF) {
+                            const tags = window.EXIF.readFromBinaryFile(arrayBuffer);
+                            if (tags && (tags.Make || tags.Model || tags.FocalLength)) {
+                                extractedExif = {
+                                    Make: tags.Make, Model: tags.Model, FNumber: tags.FNumber,
+                                    ExposureTime: tags.ExposureTime, ISOSpeedRatings: tags.ISOSpeedRatings,
+                                    FocalLength: tags.FocalLength, FocalLengthIn35mmFilm: tags.FocalLengthIn35mmFilm,
+                                    DateTimeOriginal: tags.DateTimeOriginal,
+                                };
+                            }
+                        }
+                    } catch (err) {}
+                }
+
+                return new Promise((resolve) => {
+                    const originalImg = new Image();
+                    originalImg.crossOrigin = "Anonymous";
+                    originalImg.src = imgItem.previewUrl;
+                    originalImg.onload = () => {
+                        const finalCanvas = document.createElement('canvas');
+                        const finalCtx = finalCanvas.getContext('2d');
+                        if (finalCtx) {
+                            drawFrameOnCanvas(finalCanvas, finalCtx, originalImg, extractedExif || {}, settings);
+                            const finalUrl = finalCanvas.toDataURL('image/jpeg', 1.0);
+                            setImages(prev => prev.map(p => p.id === imgItem.id ? { ...p, finalUrl, exif: extractedExif, status: 'done' } : p));
+                        }
+                        resolve();
+                    };
+                    originalImg.onerror = () => {
+                        setImages(prev => prev.map(p => p.id === imgItem.id ? { ...p, status: 'error' } : p));
+                        resolve();
+                    }
+                });
+            };
+
+            const reProcessAll = () => { if(images.length > 0) processQueue(images); };
+
+            // --- DRAWING LOGIC ---
+            const drawFrameOnCanvas = (canvas, ctx, sourceImg, exif, cfg) => {
+                const sourceW = sourceImg.naturalWidth || sourceImg.width;
+                const sourceH = sourceImg.naturalHeight || sourceImg.height;
+                if (!sourceW || !sourceH) return;
+
+                const shortSide = Math.min(sourceW, sourceH);
+                const baseP = Math.floor(shortSide * (cfg.borderWidthPercent / 100));
+                
+                const isLandscape = sourceW > sourceH;
+                const targetRatio = isLandscape ? 5/4 : 4/5;
+                
+                // Smart Padding Scale
+                const minPaddingScale = isLandscape ? 1.0 : 1.25; 
+                const minBottomRequired = Math.floor(shortSide * (cfg.bottomPaddingPercent / 100) * minPaddingScale);
+
+                let wOut = sourceW + (baseP * 2);
+                let hOut = wOut / targetRatio;
+                let calcBottom = hOut - sourceH - baseP;
+
+                let canvasW, canvasH, topP, bottomP, sideP;
+
+                if (calcBottom >= minBottomRequired) {
+                    canvasW = wOut; canvasH = hOut; topP = baseP; sideP = baseP; bottomP = calcBottom; 
+                } else {
+                    let hOutFixed = sourceH + baseP + minBottomRequired;
+                    let wOutFixed = hOutFixed * targetRatio;
+                    canvasH = hOutFixed; canvasW = wOutFixed; topP = baseP; bottomP = minBottomRequired;
+                    sideP = (canvasW - sourceW) / 2;
+                }
+                
+                canvas.width = canvasW; canvas.height = canvasH;
+
+                ctx.fillStyle = cfg.backgroundColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.save();
+                if (cfg.shadowEnabled) {
+                    ctx.shadowColor = "rgba(0, 0, 0, 0.25)"; 
+                    ctx.shadowBlur = shortSide * 0.04;
+                    ctx.shadowOffsetX = 0; ctx.shadowOffsetY = shortSide * 0.01;
+                }
+                ctx.drawImage(sourceImg, Math.floor(sideP), Math.floor(topP), sourceW, sourceH);
+                ctx.restore();
+
+                // Text Setup
+                ctx.fillStyle = cfg.textColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const baseFontSize = shortSide * 0.035; 
+                const centerX = canvas.width / 2;
+                try { ctx.letterSpacing = "0.234em"; } catch(e) {} 
+
+                // Content
+                const logoImg = signatureRef.current;
+                const captionText = cfg.captionText;
+                
+                const infoParts = [];
+                if (cfg.showCameraModel) {
+                    const cam = cleanModelName(exif.Make, exif.Model);
+                    if (cam) infoParts.push(cam);
+                }
+                if (cfg.showSettings) {
+                    const specs = [];
+                    const fl = formatFocalLength(exif.FocalLength, exif.FocalLengthIn35mmFilm, exif.Make, exif.Model);
+                    if (fl) specs.push(fl);
+                    if (exif.FNumber) specs.push(formatFNumber(exif.FNumber));
+                    if (exif.ExposureTime) specs.push(formatExposureTime(exif.ExposureTime));
+                    if (exif.ISOSpeedRatings) specs.push(formatISO(exif.ISOSpeedRatings));
+                    if (specs.length > 0) infoParts.push(specs.join(' ')); 
+                }
+                if (cfg.showDate && exif.DateTimeOriginal) {
+                    infoParts.push(String(exif.DateTimeOriginal || '').split(' ')[0].replace(/:/g, '.'));
+                }
+                const infoText = infoParts.join('  |  ');
+
+                let contentBlocks = [];
+                const lineHeight = baseFontSize * 1.5;
+                const logoHeight = baseFontSize * 2.5; 
+
+                // Block 1: Logo & Caption
+                if (logoImg && captionText) {
+                    contentBlocks.push({ type: 'logo-caption', logo: logoImg, caption: captionText, height: logoHeight });
+                } else {
+                    if (captionText) contentBlocks.push({ type: 'text', content: captionText, style: 'caption', height: lineHeight });
+                    if (logoImg) contentBlocks.push({ type: 'image', content: logoImg, height: logoHeight });
+                    else if (cfg.watermarkText) contentBlocks.push({ type: 'text', content: cfg.watermarkText, style: 'bold', height: lineHeight });
+                }
+
+                // Block 2: Info
+                if (infoText) contentBlocks.push({ type: 'text', content: infoText, style: 'small', height: lineHeight });
+
+                // --- NEW BOTTOM-ANCHORED LAYOUT LOGIC (ADJUSTED 2.2 / 0.4) ---
+                const marginBottom = baseFontSize * 2.2; 
+                const gapBetweenBlocks = baseFontSize * 0.4;
+
+                const infoBlock = contentBlocks.find(b => b.style === 'small');
+                const upperBlock = contentBlocks.find(b => b.type === 'logo-caption' || b.style === 'caption' || b.type === 'image' || b.style === 'bold');
+
+                if (infoBlock) {
+                    const infoY = canvasH - marginBottom;
+                    drawBlock(ctx, infoBlock, centerX, infoY, baseFontSize, cfg);
+                    if (upperBlock) {
+                        const upperY = infoY - (infoBlock.height / 2) - gapBetweenBlocks - (upperBlock.height / 2);
+                        drawBlock(ctx, upperBlock, centerX, upperY, baseFontSize, cfg);
+                    }
+                } else if (upperBlock) {
+                    const upperY = canvasH - marginBottom;
+                    drawBlock(ctx, upperBlock, centerX, upperY, baseFontSize, cfg);
+                }
+            };
+
+            const drawBlock = (ctx, block, x, y, baseFontSize, cfg) => {
+                if (block.type === 'logo-caption') {
+                    const sRatio = block.logo.width / block.logo.height;
+                    const logoW = block.height * sRatio; 
+                    
+                    ctx.save();
+                    const capSize = baseFontSize * cfg.captionSize;
+                    ctx.font = `${cfg.captionBold ? '700' : '400'} ${capSize}px ${cfg.fontFamily}`;
+                    if (cfg.captionSpacing > 0) { try { ctx.letterSpacing = (cfg.captionSpacing / 100) + "em"; } catch(e){} }
+                    
+                    const capMetrics = ctx.measureText(block.caption);
+                    const gapLogoCap = baseFontSize * 0.8;
+                    const totalRowW = logoW + gapLogoCap + capMetrics.width;
+                    const startX = x - (totalRowW / 2);
+                    
+                    ctx.drawImage(block.logo, startX, y - (block.height/2), logoW, block.height);
+                    ctx.textAlign = 'left';
+                    ctx.fillText(block.caption, startX + logoW + gapLogoCap, y);
+                    ctx.restore();
+                } else if (block.type === 'image') {
+                    const sRatio = block.content.width / block.content.height;
+                    const logoW = block.height * sRatio;
+                    ctx.drawImage(block.content, x - (logoW/2), y - (block.height/2), logoW, block.height);
+                } else {
+                    ctx.save();
+                    ctx.textAlign = 'center';
+                    if (block.style === 'small') {
+                        ctx.font = `300 ${baseFontSize * 0.50}px ${cfg.fontFamily}`; // Reduced to 0.50
+                        try { ctx.letterSpacing = "0.15em"; } catch(e){}
+                    } else if (block.style === 'caption') {
+                        const size = baseFontSize * cfg.captionSize;
+                        ctx.font = `${cfg.captionBold ? '700' : '400'} ${size}px ${cfg.fontFamily}`; // Customizable Bold/Regular
+                        if (cfg.captionSpacing > 0) { try { ctx.letterSpacing = (cfg.captionSpacing / 100) + "em"; } catch(e){} }
+                    } else {
+                        ctx.font = `600 ${baseFontSize}px ${cfg.fontFamily}`;
+                    }
+                    ctx.fillText(block.content, x, y);
+                    ctx.restore();
+                }
+            }
+
+            const handleShareOrSaveSingle = async (img) => {
+                if (!img.finalUrl) return;
+                const fileName = `${img.file.name.replace(/\.[^/.]+$/, "")}_framed.jpg`;
+                if (navigator.share && navigator.canShare) {
+                    try {
+                        const res = await fetch(img.finalUrl);
+                        const blob = await res.blob();
+                        const file = new File([blob], fileName, { type: 'image/jpeg' });
+                        if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+                    } catch (e) {}
+                }
+                const link = document.createElement('a');
+                link.href = img.finalUrl; link.download = fileName;
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            };
+
+            const handleSaveAll = async () => {
+                const doneImages = images.filter(i => i.status === 'done' && i.finalUrl);
+                if (doneImages.length === 0) return;
+                if (navigator.share && navigator.canShare) {
+                    try {
+                        const files = await Promise.all(doneImages.map(async (img) => {
+                            const res = await fetch(img.finalUrl);
+                            const blob = await res.blob();
+                            return new File([blob], `${img.file.name.replace(/\.[^/.]+$/, "")}_framed.jpg`, { type: 'image/jpeg' });
+                        }));
+                        if (navigator.canShare({ files })) { await navigator.share({ files }); return; }
+                    } catch (e) {}
+                }
+                if (window.JSZip) {
+                    const zip = new window.JSZip();
+                    doneImages.forEach(img => zip.file(`${img.file.name.replace(/\.[^/.]+$/, "")}_framed.jpg`, img.finalUrl.split(',')[1], {base64: true}));
+                    const content = await zip.generateAsync({ type: "blob" });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(content); link.download = "bluer_exif_frames.zip";
+                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                }
+            };
+
+            // Manual Edit Handlers
+            const openManualEdit = (img) => {
+                setEditingExifId(img.id);
+                const d = img.exif || {};
+                setManualForm({
+                    make: d.Make||'', model: d.Model||'', focalLength: d.FocalLengthIn35mmFilm||d.FocalLength||'',
+                    aperture: d.FNumber||'', shutter: d.ExposureTime?(d.ExposureTime<1?`1/${Math.round(1/d.ExposureTime)}`:d.ExposureTime):'',
+                    iso: d.ISOSpeedRatings||'', date: d.DateTimeOriginal?d.DateTimeOriginal.split(' ')[0].replace(/:/g,'-'):''
+                });
+            };
+            const saveManualExif = () => {
+                const idx = images.findIndex(i => i.id === editingExifId);
+                if (idx === -1) return;
+                const newExif = {
+                    Make: manualForm.make, Model: manualForm.model, FNumber: manualForm.aperture, ExposureTime: manualForm.shutter,
+                    ISOSpeedRatings: manualForm.iso, FocalLengthIn35mmFilm: manualForm.focalLength, FocalLength: 0,
+                    DateTimeOriginal: manualForm.date ? manualForm.date.replace(/-/g, ':') + " 00:00:00" : ''
+                };
+                setImages(p => { const n = [...p]; n[idx] = { ...n[idx], manualExif: newExif, status: 'processing' }; return n; });
+                setEditingExifId(null);
+                processSingleImage({ ...images[idx], manualExif: newExif });
+            };
+
+            return (
+                <div className="flex flex-col h-full">
+                    <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm z-30 shrink-0">
+                        <div className="flex items-center gap-2">
+                            <Icons.Camera className="w-6 h-6 text-blue-600" />
+                            <h1 className="text-lg font-bold">Bluer Exif Frame</h1>
+                        </div>
+                        <label className={`bg-blue-600 text-white p-2 rounded-full flex items-center justify-center shadow-sm transition-all ${libsLoaded ? 'cursor-pointer active:bg-blue-700' : 'opacity-50'}`}>
+                            {libsLoaded ? <Icons.Upload className="w-5 h-5" /> : <Icons.Loader2 className="w-5 h-5" />}
+                            <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} disabled={!libsLoaded} />
+                        </label>
+                    </header>
+
+                    <main className="flex-1 overflow-y-auto p-4 pb-32">
+                        {images.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400 border-2 border-dashed border-gray-300 rounded-2xl bg-white/50" onClick={() => libsLoaded && document.querySelector('input[type=file]')?.click()}>
+                                <Icons.ImageIcon className="w-12 h-12 mb-3 text-gray-300" /><p className="font-medium">{libsLoaded ? "Chạm để thêm ảnh" : "Đang tải thư viện..."}</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-6">
+                                {images.map((img) => (
+                                    <div key={img.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative group">
+                                        <div className="relative bg-gray-100 flex items-center justify-center min-h-[200px]">
+                                            {img.status === 'processing' && <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center"><Icons.Loader2 className="w-8 h-8 text-blue-600" /></div>}
+                                            <img src={img.finalUrl || img.previewUrl} className={`w-full h-auto object-contain ${!img.finalUrl ? 'opacity-50' : ''}`} />
+                                        </div>
+                                        <div className="p-3">
+                                            <div className="flex justify-between items-center mb-3">
+                                                <div className="flex-1 overflow-hidden mr-2">
+                                                    <p className="text-xs font-bold truncate text-gray-700">{img.file.name}</p>
+                                                    {img.status === 'done' && !img.exif && !img.manualExif && <button onClick={() => openManualEdit(img)} className="flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1 border border-blue-100 font-bold"><Icons.Edit className="w-3 h-3" /> Nhập thông tin</button>}
+                                                    {img.status === 'done' && (img.exif || img.manualExif) && <button onClick={() => openManualEdit(img)} className="text-xs text-gray-400 flex items-center gap-1 mt-1 hover:text-blue-600"><Icons.Edit className="w-3 h-3" /> Sửa thông số</button>}
+                                                </div>
+                                                <button onClick={() => setImages(p => p.filter(i => i.id !== img.id))} className="text-gray-400 p-2 -mr-2 active:text-red-500"><Icons.Trash2 className="w-5 h-5" /></button>
+                                            </div>
+                                            <button onClick={() => handleShareOrSaveSingle(img)} disabled={!img.finalUrl} className="w-full bg-white border border-gray-200 text-gray-900 hover:bg-gray-50 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"><Icons.Share className="w-4 h-4" /> Lưu / Chia sẻ</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </main>
+
+                    {editingExifId && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setEditingExifId(null)}>
+                            <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                                <div className="p-4 border-b flex justify-between items-center"><h3 className="font-bold text-lg">Nhập thông số</h3><button onClick={() => setEditingExifId(null)} className="p-2 bg-gray-100 rounded-full"><Icons.X className="w-4 h-4" /></button></div>
+                                <div className="p-4 overflow-y-auto modal-scroll space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="col-span-2"><label className="text-xs font-bold text-gray-500 mb-1 block">Hãng</label><input type="text" value={manualForm.make} onChange={(e) => setManualForm({...manualForm, make: e.target.value})} className="w-full p-2 border rounded-lg text-sm" placeholder="Sony..." /></div>
+                                        <div className="col-span-2"><label className="text-xs font-bold text-gray-500 mb-1 block">Model</label><input type="text" value={manualForm.model} onChange={(e) => setManualForm({...manualForm, model: e.target.value})} className="w-full p-2 border rounded-lg text-sm" placeholder="A7III..." /></div>
+                                        <div><label className="text-xs font-bold text-gray-500 mb-1">Tiêu cự</label><input type="text" value={manualForm.focalLength} onChange={(e) => setManualForm({...manualForm, focalLength: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
+                                        <div><label className="text-xs font-bold text-gray-500 mb-1">Khẩu độ</label><input type="text" value={manualForm.aperture} onChange={(e) => setManualForm({...manualForm, aperture: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
+                                        <div><label className="text-xs font-bold text-gray-500 mb-1">Tốc độ</label><input type="text" value={manualForm.shutter} onChange={(e) => setManualForm({...manualForm, shutter: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
+                                        <div><label className="text-xs font-bold text-gray-500 mb-1">ISO</label><input type="text" value={manualForm.iso} onChange={(e) => setManualForm({...manualForm, iso: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
+                                        <div className="col-span-2"><label className="text-xs font-bold text-gray-500 mb-1">Ngày</label><input type="date" value={manualForm.date} onChange={(e) => setManualForm({...manualForm, date: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
+                                    </div>
+                                </div>
+                                <div className="p-4 border-t"><button onClick={saveManualExif} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow">Lưu</button></div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 pb-safe z-40 flex justify-around items-center shadow-lg">
+                        <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 ${isSettingsOpen ? 'text-blue-600' : 'text-gray-500'}`}><Icons.Settings className="w-6 h-6" /><span className="text-[10px] font-medium">Cấu hình</span></button>
+                        {images.length > 0 && <button onClick={reProcessAll} className="flex flex-col items-center gap-1 p-2 text-gray-500 active:text-blue-600 flex-1"><Icons.Check className="w-5 h-5" /><span className="text-[10px] font-medium">Làm mới</span></button>}
+                        {images.length > 1 && <button onClick={handleSaveAll} className="flex flex-col items-center gap-1 p-2 text-blue-600 active:scale-95 transition-transform flex-1"><Icons.FolderDown className="w-6 h-6" /><span className="text-[10px] font-bold">Lưu tất cả</span></button>}
+                    </div>
+
+                    {isSettingsOpen && (
+                        <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center bg-black/50 backdrop-blur-sm" onClick={() => setIsSettingsOpen(false)}>
+                            <div className="relative bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-center p-4 border-b"><h3 className="font-bold text-lg">Tùy chỉnh</h3><button onClick={() => setIsSettingsOpen(false)} className="p-2 bg-gray-100 rounded-full"><Icons.X className="w-5 h-5" /></button></div>
+                                <div className="flex p-2 gap-2 bg-gray-50 mx-4 mt-2 rounded-lg shrink-0">
+                                    {['layout', 'color', 'content'].map(tab => (
+                                        <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 rounded-md text-xs font-bold uppercase ${activeTab === tab ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}>{tab === 'layout' ? 'Bố cục' : tab === 'color' ? 'Màu sắc' : 'Nội dung'}</button>
+                                    ))}
+                                </div>
+                                <div className="p-5 overflow-y-auto">
+                                    {activeTab === 'layout' && <div className="space-y-6">
+                                        <div><div className="flex justify-between mb-2"><span className="text-sm font-medium">Độ dày viền</span><span className="text-xs bg-gray-100 px-2 py-1 rounded">{settings.borderWidthPercent}%</span></div><input type="range" min="0" max="30" value={settings.borderWidthPercent} onChange={(e) => setSettings({...settings, borderWidthPercent: Number(e.target.value)})} /></div>
+                                        <div><div className="flex justify-between mb-2"><span className="text-sm font-medium">Khoảng dưới (Min)</span><span className="text-xs bg-gray-100 px-2 py-1 rounded">{settings.bottomPaddingPercent}%</span></div><input type="range" min="5" max="50" value={settings.bottomPaddingPercent} onChange={(e) => setSettings({...settings, bottomPaddingPercent: Number(e.target.value)})} /></div>
+                                        <div className="flex justify-between pt-2"><span className="text-sm font-medium">Đổ bóng</span><input type="checkbox" checked={settings.shadowEnabled} onChange={(e) => setSettings({...settings, shadowEnabled: e.target.checked})} className="w-5 h-5 accent-blue-600" /></div>
+                                    </div>}
+                                    {activeTab === 'color' && <div className="space-y-4">
+                                        <div className="flex justify-between p-3 border rounded-xl"><span className="text-sm font-medium">Màu nền</span><input type="color" value={settings.backgroundColor} onChange={(e) => setSettings({...settings, backgroundColor: e.target.value})} /></div>
+                                        <div className="flex justify-between p-3 border rounded-xl"><span className="text-sm font-medium">Màu chữ</span><input type="color" value={settings.textColor} onChange={(e) => setSettings({...settings, textColor: e.target.value})} /></div>
+                                    </div>}
+                                    {activeTab === 'content' && <div className="space-y-4">
+                                        <div className="bg-gray-50 p-3 rounded-xl border space-y-3">
+                                            <div className="flex justify-between"><label className="text-xs font-bold uppercase text-gray-500">Tiêu đề (Caption)</label><label className="flex gap-2 text-xs font-bold text-gray-600"><input type="checkbox" checked={settings.captionBold} onChange={(e) => setSettings({...settings, captionBold: e.target.checked})} /> Đậm</label></div>
+                                            <input type="text" value={settings.captionText} placeholder="VD: A Sunday Morning" onChange={(e) => setSettings({...settings, captionText: e.target.value})} className="w-full p-3 border rounded-lg text-sm bg-white" />
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div><label className="text-[10px] text-gray-400 mb-1">Kích thước</label><input type="range" min="0.5" max="1.5" step="0.05" value={settings.captionSize} onChange={(e) => setSettings({...settings, captionSize: Number(e.target.value)})} /></div>
+                                                <div><label className="text-[10px] text-gray-400 mb-1">Giãn chữ</label><input type="range" min="0" max="50" step="1" value={settings.captionSpacing} onChange={(e) => setSettings({...settings, captionSpacing: Number(e.target.value)})} /></div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2 pt-1"><label className="text-xs font-bold uppercase text-gray-500">Thông tin</label><div className="grid grid-cols-3 gap-2">{['showCameraModel', 'showSettings', 'showDate'].map(key => (<label key={key} className={`flex flex-col items-center justify-center p-2 border rounded-lg text-xs font-medium ${settings[key] ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white text-gray-500'}`}>{key==='showCameraModel'?'Tên Máy':key==='showSettings'?'Thông Số':'Ngày'}<input type="checkbox" checked={settings[key]} onChange={(e) => setSettings({...settings, [key]: e.target.checked})} className="hidden" /></label>))}</div></div>
+                                        <div className="border rounded-xl p-3 bg-white"><span className="text-xs font-bold uppercase text-gray-500 block mb-2">Logo</span><div className="flex items-center gap-3">{signatureUrl ? <div className="relative w-12 h-12 border rounded bg-gray-50 flex items-center justify-center overflow-hidden"><img src={signatureUrl} className="max-w-full max-h-full object-contain" /><button onClick={removeSignature} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl"><Icons.X className="w-3 h-3" /></button></div> : <div className="w-12 h-12 border-2 border-dashed rounded bg-gray-50 flex items-center justify-center text-gray-300"><Icons.ImageIcon className="w-5 h-5" /></div>}<div className="flex-1 space-y-2"><label className="cursor-pointer bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 w-full active:bg-blue-700"><Icons.ImagePlus className="w-3 h-3" /> Tải lên <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} /></label>{!signatureUrl && <input type="text" value={settings.watermarkText} placeholder="Hoặc nhập text..." onChange={(e) => setSettings({...settings, watermarkText: e.target.value})} className="w-full p-2 border rounded-lg text-xs" />}</div></div></div>
+                                    </div>}
+                                </div>
+                                <div className="p-4 border-t"><button onClick={() => { reProcessAll(); setIsSettingsOpen(false); }} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95 transition-transform">Áp dụng</button></div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

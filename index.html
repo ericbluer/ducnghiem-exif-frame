@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-title" content="Bluer Frame">
     <meta name="theme-color" content="#ffffff">
 
-    <!-- Icon App trên màn hình chính -->
+    <!-- Icon App -->
     <link rel="apple-touch-icon" href="./icon.png">
     <link rel="icon" type="image/png" href="./icon.png">
 
@@ -37,6 +37,7 @@
         }
         
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Ethiopic:wght@100..900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
         
         .modal-scroll::-webkit-scrollbar { width: 4px; }
         .modal-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -50,6 +51,12 @@
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px;
         }
+        /* Hide spin buttons for number input */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+          -webkit-appearance: none; 
+          margin: 0; 
+        }
     </style>
 </head>
 <body>
@@ -58,9 +65,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- CẤU HÌNH LOGO MẶC ĐỊNH ---
-        // App sẽ tự động tải file "signature.png" nằm cùng thư mục
-        // Bạn hãy upload file chữ ký của bạn lên GitHub và đặt tên là signature.png
+        // --- CẤU HÌNH ---
         const DEFAULT_LOGO = "./signature.png"; 
 
         const CAMERA_DB = {
@@ -90,7 +95,10 @@
             Loader2: (p) => <svg className={`${p.className} animate-spin`} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>,
             Info: (p) => <Icon {...p} path="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
             Edit: (p) => <Icon {...p} path="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
-            ImagePlus: (p) => <Icon {...p} path="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7m4 10l-4-4-4 4m6-6l4 4m2-10v6m3-3h-6" />
+            ImagePlus: (p) => <Icon {...p} path="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7m4 10l-4-4-4 4m6-6l4 4m2-10v6m3-3h-6" />,
+            ArrowUp: (p) => <Icon {...p} path="M12 19V5 M5 12l7-7 7 7" />,
+            ArrowDown: (p) => <Icon {...p} path="M12 5v14 M19 12l-7 7-7-7" />,
+            RefreshCcw: (p) => <Icon {...p} path="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5 M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16 M21 21v-5h-5" />
         };
 
         // --- Helpers ---
@@ -144,6 +152,24 @@
             return '';
         };
 
+        const DEFAULT_SETTINGS = {
+            borderWidthPercent: 15,
+            bottomPaddingPercent: 20,
+            backgroundColor: '#ffffff',
+            textColor: '#222222',
+            showCameraModel: true,
+            showSettings: true,
+            showDate: false,
+            shadowEnabled: true,
+            fontFamily: '"Noto Serif Ethiopic", serif',
+            watermarkText: '',
+            captionText: '',
+            captionBold: true,
+            captionSize: 0.75,
+            captionSpacing: 0,
+            infoOffsetY: 0, // New: Vertical offset for info line
+        };
+
         // --- MAIN APP ---
         function App() {
             const [images, setImages] = useState([]);
@@ -153,29 +179,14 @@
             const [libsLoaded, setLibsLoaded] = useState(false);
             
             const [signatureUrl, setSignatureUrl] = useState(null);
+            const [imgError, setImgError] = useState(false);
             const signatureRef = useRef(null);
 
             const [manualForm, setManualForm] = useState({
                 make: '', model: '', focalLength: '', aperture: '', shutter: '', iso: '', date: ''
             });
 
-            // Settings State
-            const [settings, setSettings] = useState({
-                borderWidthPercent: 15,
-                bottomPaddingPercent: 20, 
-                backgroundColor: '#ffffff',
-                textColor: '#222222',
-                showCameraModel: true,
-                showSettings: true,
-                showDate: false,
-                shadowEnabled: true,
-                fontFamily: '"Noto Serif Ethiopic", serif',
-                watermarkText: '', 
-                captionText: '',
-                captionBold: true,
-                captionSize: 0.75, 
-                captionSpacing: 0, 
-            });
+            const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
             useEffect(() => {
                 const checkLibs = setInterval(() => {
@@ -189,14 +200,11 @@
                 if (savedSettings) {
                     try {
                         const parsed = JSON.parse(savedSettings);
-                        if (!parsed.fontFamily) parsed.fontFamily = '"Noto Serif Ethiopic", serif';
-                        if (parsed.captionBold === undefined) parsed.captionBold = true;
-                        if (parsed.captionSize === undefined) parsed.captionSize = 0.75;
-                        setSettings(parsed);
+                        // Merge with defaults to ensure new settings exist
+                        setSettings({...DEFAULT_SETTINGS, ...parsed});
                     } catch (e) { console.error(e); }
                 }
 
-                // Check LocalStorage first, then default
                 const savedSig = localStorage.getItem('bluer_signature');
                 if (savedSig) {
                     setSignatureUrl(savedSig);
@@ -212,13 +220,14 @@
             }, [settings]);
 
             useEffect(() => {
+                setImgError(false);
                 if (signatureUrl) {
                     const img = new Image();
                     img.src = signatureUrl;
                     img.onload = () => { signatureRef.current = img; reProcessAll(); };
                     img.onerror = () => { 
-                         // If default logo file missing, don't break app
-                         console.warn("Could not load signature image");
+                         console.warn("Could not load signature image:", signatureUrl);
+                         setImgError(true);
                          signatureRef.current = null; 
                          reProcessAll(); 
                     };
@@ -265,8 +274,6 @@
             const removeSignature = () => {
                 setSignatureUrl(null);
                 localStorage.removeItem('bluer_signature');
-                // Note: DEFAULT_LOGO will come back on reload unless we block it, 
-                // but standard behavior is "Reset to default".
             };
 
             const processQueue = async (queue) => {
@@ -344,7 +351,6 @@
                 processSingleImage({ ...images[idx], manualExif: newExif });
             };
 
-            // --- DRAWING LOGIC ---
             const drawFrameOnCanvas = (canvas, ctx, sourceImg, exif, cfg) => {
                 const sourceW = sourceImg.naturalWidth || sourceImg.width;
                 const sourceH = sourceImg.naturalHeight || sourceImg.height;
@@ -355,8 +361,6 @@
                 
                 const isLandscape = sourceW > sourceH;
                 const targetRatio = isLandscape ? 5/4 : 4/5;
-                
-                // Smart Padding Scale
                 const minPaddingScale = isLandscape ? 1.0 : 1.25; 
                 const minBottomRequired = Math.floor(shortSide * (cfg.bottomPaddingPercent / 100) * minPaddingScale);
 
@@ -389,7 +393,7 @@
                 ctx.drawImage(sourceImg, Math.floor(sideP), Math.floor(topP), sourceW, sourceH);
                 ctx.restore();
 
-                // Text Setup
+                // Text
                 ctx.fillStyle = cfg.textColor;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -397,7 +401,6 @@
                 const centerX = canvas.width / 2;
                 try { ctx.letterSpacing = "0.234em"; } catch(e) {} 
 
-                // Content
                 const logoImg = signatureRef.current;
                 const captionText = cfg.captionText;
                 
@@ -416,10 +419,10 @@
                     if (specs.length > 0) infoParts.push(specs.join(' ')); 
                 }
                 if (cfg.showDate && exif.DateTimeOriginal) {
-                    const rawDateStr = String(exif.DateTimeOriginal || '').split(' ')[0]; // YYYY:MM:DD
+                    const rawDateStr = String(exif.DateTimeOriginal || '').split(' ')[0]; 
                     const parts = rawDateStr.split(':');
                     const datePart = parts.length === 3 
-                        ? `${parts[2]}.${parts[1]}.${parts[0]}` // DD.MM.YYYY
+                        ? `${parts[2]}.${parts[1]}.${parts[0]}` 
                         : rawDateStr.replace(/:/g, '.');
                     infoParts.push(datePart);
                 }
@@ -429,7 +432,6 @@
                 const lineHeight = baseFontSize * 1.5;
                 const logoHeight = baseFontSize * 2.5; 
 
-                // Block 1: Logo & Caption
                 if (logoImg && captionText) {
                     contentBlocks.push({ type: 'logo-caption', logo: logoImg, caption: captionText, height: logoHeight });
                 } else {
@@ -438,25 +440,25 @@
                     else if (cfg.watermarkText) contentBlocks.push({ type: 'text', content: cfg.watermarkText, style: 'bold', height: lineHeight });
                 }
 
-                // Block 2: Info
                 if (infoText) contentBlocks.push({ type: 'text', content: infoText, style: 'small', height: lineHeight });
 
-                // --- NEW BOTTOM-ANCHORED LAYOUT LOGIC (ADJUSTED 2.2 / 0.4) ---
                 const marginBottom = baseFontSize * 2.2; 
                 const gapBetweenBlocks = baseFontSize * 0.4;
+                // Calculate pixel offset based on canvas size for consistency
+                const pixelOffset = (cfg.infoOffsetY || 0) * (shortSide / 1000); 
 
                 const infoBlock = contentBlocks.find(b => b.style === 'small');
                 const upperBlock = contentBlocks.find(b => b.type === 'logo-caption' || b.style === 'caption' || b.type === 'image' || b.style === 'bold');
 
                 if (infoBlock) {
-                    const infoY = canvasH - marginBottom;
+                    const infoY = canvasH - marginBottom + pixelOffset;
                     drawBlock(ctx, infoBlock, centerX, infoY, baseFontSize, cfg);
                     if (upperBlock) {
                         const upperY = infoY - (infoBlock.height / 2) - gapBetweenBlocks - (upperBlock.height / 2);
                         drawBlock(ctx, upperBlock, centerX, upperY, baseFontSize, cfg);
                     }
                 } else if (upperBlock) {
-                    const upperY = canvasH - marginBottom;
+                    const upperY = canvasH - marginBottom + pixelOffset;
                     drawBlock(ctx, upperBlock, centerX, upperY, baseFontSize, cfg);
                 }
             };
@@ -488,11 +490,11 @@
                     ctx.save();
                     ctx.textAlign = 'center';
                     if (block.style === 'small') {
-                        ctx.font = `300 ${baseFontSize * 0.50}px ${cfg.fontFamily}`; // Reduced to 0.50
+                        ctx.font = `300 ${baseFontSize * 0.55}px ${cfg.fontFamily}`; // Increased to 0.55
                         try { ctx.letterSpacing = "0.15em"; } catch(e){}
                     } else if (block.style === 'caption') {
                         const size = baseFontSize * cfg.captionSize;
-                        ctx.font = `${cfg.captionBold ? '700' : '400'} ${size}px ${cfg.fontFamily}`; // Customizable Bold/Regular
+                        ctx.font = `${cfg.captionBold ? '700' : '400'} ${size}px ${cfg.fontFamily}`; 
                         if (cfg.captionSpacing > 0) { try { ctx.letterSpacing = (cfg.captionSpacing / 100) + "em"; } catch(e){} }
                     } else {
                         ctx.font = `600 ${baseFontSize}px ${cfg.fontFamily}`;
@@ -541,8 +543,26 @@
                 }
             };
 
-            // Manual Edit Handlers
-            // (Removed duplicate definitions of openManualEdit and saveManualExif)
+            const resetSettings = (tab) => {
+                let newSettings = { ...settings };
+                if (tab === 'layout') {
+                    newSettings.borderWidthPercent = DEFAULT_SETTINGS.borderWidthPercent;
+                    newSettings.bottomPaddingPercent = DEFAULT_SETTINGS.bottomPaddingPercent;
+                    newSettings.shadowEnabled = DEFAULT_SETTINGS.shadowEnabled;
+                    newSettings.infoOffsetY = DEFAULT_SETTINGS.infoOffsetY;
+                } else if (tab === 'color') {
+                    newSettings.backgroundColor = DEFAULT_SETTINGS.backgroundColor;
+                    newSettings.textColor = DEFAULT_SETTINGS.textColor;
+                } else if (tab === 'content') {
+                    newSettings.captionBold = DEFAULT_SETTINGS.captionBold;
+                    newSettings.captionSize = DEFAULT_SETTINGS.captionSize;
+                    newSettings.captionSpacing = DEFAULT_SETTINGS.captionSpacing;
+                    newSettings.showCameraModel = DEFAULT_SETTINGS.showCameraModel;
+                    newSettings.showSettings = DEFAULT_SETTINGS.showSettings;
+                    newSettings.showDate = DEFAULT_SETTINGS.showDate;
+                }
+                setSettings(newSettings);
+            };
 
             return (
                 <div className="flex flex-col h-full">
@@ -616,7 +636,13 @@
                     {isSettingsOpen && (
                         <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center bg-black/50 backdrop-blur-sm" onClick={() => setIsSettingsOpen(false)}>
                             <div className="relative bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center p-4 border-b"><h3 className="font-bold text-lg">Tùy chỉnh</h3><button onClick={() => setIsSettingsOpen(false)} className="p-2 bg-gray-100 rounded-full"><Icons.X className="w-5 h-5" /></button></div>
+                                <div className="flex justify-between items-center p-4 border-b">
+                                    <h3 className="font-bold text-lg">Tùy chỉnh</h3>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => resetSettings(activeTab)} title="Đặt lại mặc định" className="p-2 text-gray-400 hover:text-blue-600 rounded-full active:bg-gray-100"><Icons.RefreshCcw className="w-4 h-4" /></button>
+                                        <button onClick={() => setIsSettingsOpen(false)} className="p-2 bg-gray-100 rounded-full"><Icons.X className="w-5 h-5" /></button>
+                                    </div>
+                                </div>
                                 <div className="flex p-2 gap-2 bg-gray-50 mx-4 mt-2 rounded-lg shrink-0">
                                     {['layout', 'color', 'content'].map(tab => (
                                         <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 rounded-md text-xs font-bold uppercase ${activeTab === tab ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}>{tab === 'layout' ? 'Bố cục' : tab === 'color' ? 'Màu sắc' : 'Nội dung'}</button>
@@ -624,28 +650,39 @@
                                 </div>
                                 <div className="p-5 overflow-y-auto">
                                     {activeTab === 'layout' && <div className="space-y-6">
-                                        <div><div className="flex justify-between mb-2"><span className="text-sm font-medium">Độ dày viền</span><span className="text-xs bg-gray-100 px-2 py-1 rounded">{settings.borderWidthPercent}%</span></div><input type="range" min="0" max="30" value={settings.borderWidthPercent} onChange={(e) => setSettings({...settings, borderWidthPercent: Number(e.target.value)})} /></div>
-                                        <div><div className="flex justify-between mb-2"><span className="text-sm font-medium">Khoảng dưới (Min)</span><span className="text-xs bg-gray-100 px-2 py-1 rounded">{settings.bottomPaddingPercent}%</span></div><input type="range" min="5" max="50" value={settings.bottomPaddingPercent} onChange={(e) => setSettings({...settings, bottomPaddingPercent: Number(e.target.value)})} /></div>
-                                        <div className="flex justify-between pt-2"><span className="text-sm font-medium">Đổ bóng</span><input type="checkbox" checked={settings.shadowEnabled} onChange={(e) => setSettings({...settings, shadowEnabled: e.target.checked})} className="w-5 h-5 accent-blue-600" /></div>
+                                        <div><div className="flex justify-between mb-2"><span className="text-sm font-medium">Độ dày viền</span><span className="text-xs bg-gray-100 px-2 py-1 rounded min-w-[3rem] text-center">{settings.borderWidthPercent}%</span></div><input type="range" min="0" max="30" value={settings.borderWidthPercent} onChange={(e) => setSettings({...settings, borderWidthPercent: Number(e.target.value)})} /></div>
+                                        <div><div className="flex justify-between mb-2"><span className="text-sm font-medium">Khoảng dưới (Min)</span><span className="text-xs bg-gray-100 px-2 py-1 rounded min-w-[3rem] text-center">{settings.bottomPaddingPercent}%</span></div><input type="range" min="5" max="50" value={settings.bottomPaddingPercent} onChange={(e) => setSettings({...settings, bottomPaddingPercent: Number(e.target.value)})} /></div>
+                                        <div>
+                                            <div className="flex justify-between mb-2 items-center">
+                                                <span className="text-sm font-medium">Vị trí dòng info</span>
+                                                <span className={`text-xs px-2 py-1 rounded min-w-[3rem] text-center ${settings.infoOffsetY === 0 ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-blue-700 font-bold'}`}>{settings.infoOffsetY > 0 ? `+${settings.infoOffsetY}` : settings.infoOffsetY} px</span>
+                                            </div>
+                                            <div className="flex items-center justify-center gap-4 bg-gray-50 p-2 rounded-lg border">
+                                                <button onClick={() => setSettings({...settings, infoOffsetY: settings.infoOffsetY - 1})} className="p-3 bg-white rounded-lg shadow-sm border active:bg-gray-100"><Icons.ArrowUp className="w-5 h-5" /></button>
+                                                <span className="text-sm font-medium text-gray-500">Dịch chuyển</span>
+                                                <button onClick={() => setSettings({...settings, infoOffsetY: settings.infoOffsetY + 1})} className="p-3 bg-white rounded-lg shadow-sm border active:bg-gray-100"><Icons.ArrowDown className="w-5 h-5" /></button>
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-between pt-2 border-t"><span className="text-sm font-medium">Đổ bóng</span><input type="checkbox" checked={settings.shadowEnabled} onChange={(e) => setSettings({...settings, shadowEnabled: e.target.checked})} className="w-5 h-5 accent-blue-600" /></div>
                                     </div>}
                                     {activeTab === 'color' && <div className="space-y-4">
-                                        <div className="flex justify-between p-3 border rounded-xl"><span className="text-sm font-medium">Màu nền</span><input type="color" value={settings.backgroundColor} onChange={(e) => setSettings({...settings, backgroundColor: e.target.value})} /></div>
-                                        <div className="flex justify-between p-3 border rounded-xl"><span className="text-sm font-medium">Màu chữ</span><input type="color" value={settings.textColor} onChange={(e) => setSettings({...settings, textColor: e.target.value})} /></div>
+                                        <div className="flex justify-between p-3 border rounded-xl"><span className="text-sm font-medium">Màu nền</span><div className="flex items-center gap-2"><span className="text-xs text-gray-500 uppercase">{settings.backgroundColor}</span><input type="color" value={settings.backgroundColor} onChange={(e) => setSettings({...settings, backgroundColor: e.target.value})} /></div></div>
+                                        <div className="flex justify-between p-3 border rounded-xl"><span className="text-sm font-medium">Màu chữ</span><div className="flex items-center gap-2"><span className="text-xs text-gray-500 uppercase">{settings.textColor}</span><input type="color" value={settings.textColor} onChange={(e) => setSettings({...settings, textColor: e.target.value})} /></div></div>
                                     </div>}
                                     {activeTab === 'content' && <div className="space-y-4">
                                         <div className="bg-gray-50 p-3 rounded-xl border space-y-3">
                                             <div className="flex justify-between"><label className="text-xs font-bold uppercase text-gray-500">Tiêu đề (Caption)</label><label className="flex gap-2 text-xs font-bold text-gray-600"><input type="checkbox" checked={settings.captionBold} onChange={(e) => setSettings({...settings, captionBold: e.target.checked})} /> Đậm</label></div>
                                             <input type="text" value={settings.captionText} placeholder="VD: A Sunday Morning" onChange={(e) => setSettings({...settings, captionText: e.target.value})} className="w-full p-3 border rounded-lg text-sm bg-white" />
                                             <div className="grid grid-cols-2 gap-4">
-                                                <div><label className="text-[10px] text-gray-400 mb-1">Kích thước</label><input type="range" min="0.5" max="1.5" step="0.05" value={settings.captionSize} onChange={(e) => setSettings({...settings, captionSize: Number(e.target.value)})} /></div>
-                                                <div><label className="text-[10px] text-gray-400 mb-1">Giãn chữ</label><input type="range" min="0" max="50" step="1" value={settings.captionSpacing} onChange={(e) => setSettings({...settings, captionSpacing: Number(e.target.value)})} /></div>
+                                                <div><div className="flex justify-between mb-1"><label className="text-[10px] text-gray-400">Kích thước</label><span className="text-[10px] bg-white px-1 rounded border">{settings.captionSize.toFixed(2)}x</span></div><input type="range" min="0.5" max="1.5" step="0.05" value={settings.captionSize} onChange={(e) => setSettings({...settings, captionSize: Number(e.target.value)})} /></div>
+                                                <div><div className="flex justify-between mb-1"><label className="text-[10px] text-gray-400">Giãn chữ</label><span className="text-[10px] bg-white px-1 rounded border">{settings.captionSpacing}%</span></div><input type="range" min="0" max="50" step="1" value={settings.captionSpacing} onChange={(e) => setSettings({...settings, captionSpacing: Number(e.target.value)})} /></div>
                                             </div>
                                         </div>
-                                        <div className="space-y-2 pt-1"><label className="text-xs font-bold uppercase text-gray-500">Thông tin</label><div className="grid grid-cols-3 gap-2">{['showCameraModel', 'showSettings', 'showDate'].map(key => (<label key={key} className={`flex flex-col items-center justify-center p-2 border rounded-lg text-xs font-medium ${settings[key] ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white text-gray-500'}`}>{key==='showCameraModel'?'Tên Máy':key==='showSettings'?'Thông Số':'Ngày'}<input type="checkbox" checked={settings[key]} onChange={(e) => setSettings({...settings, [key]: e.target.checked})} className="hidden" /></label>))}</div></div>
-                                        <div className="border rounded-xl p-3 bg-white"><span className="text-xs font-bold uppercase text-gray-500 block mb-2">Logo</span><div className="flex items-center gap-3">{signatureUrl ? <div className="relative w-12 h-12 border rounded bg-gray-50 flex items-center justify-center overflow-hidden"><img src={signatureUrl} className="max-w-full max-h-full object-contain" /><button onClick={removeSignature} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl"><Icons.X className="w-3 h-3" /></button></div> : <div className="w-12 h-12 border-2 border-dashed rounded bg-gray-50 flex items-center justify-center text-gray-300"><Icons.ImageIcon className="w-5 h-5" /></div>}<div className="flex-1 space-y-2"><label className="cursor-pointer bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 w-full active:bg-blue-700"><Icons.ImagePlus className="w-3 h-3" /> Tải lên <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} /></label>{!signatureUrl && <input type="text" value={settings.watermarkText} placeholder="Hoặc nhập text..." onChange={(e) => setSettings({...settings, watermarkText: e.target.value})} className="w-full p-2 border rounded-lg text-xs" />}</div></div></div>
+                                        <div className="space-y-2 pt-1"><label className="text-xs font-bold uppercase text-gray-500">Thông tin</label><div className="grid grid-cols-3 gap-2">{['showCameraModel', 'showSettings', 'showDate'].map(key => (<label key={key} className={`flex flex-col items-center justify-center p-2 border rounded-lg text-xs font-medium transition-colors ${settings[key] ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white text-gray-500'}`}>{key==='showCameraModel'?'Tên Máy':key==='showSettings'?'Thông Số':'Ngày'}<input type="checkbox" checked={settings[key]} onChange={(e) => setSettings({...settings, [key]: e.target.checked})} className="hidden" /></label>))}</div></div>
+                                        <div className="border rounded-xl p-3 bg-white"><span className="text-xs font-bold uppercase text-gray-500 block mb-2">Logo <span className="font-normal text-gray-400">(ưu tiên file signature.png)</span></span><div className="flex items-center gap-3">{signatureUrl ? <div className={`relative w-12 h-12 border rounded bg-gray-50 flex items-center justify-center overflow-hidden ${imgError ? 'border-red-300 bg-red-50' : ''}`}>{imgError ? <Icons.AlertCircle className="w-5 h-5 text-red-400" /> : <img src={signatureUrl} className="max-w-full max-h-full object-contain" />}<button onClick={removeSignature} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl shadow-sm z-10"><Icons.X className="w-3 h-3" /></button></div> : <div className="w-12 h-12 border-2 border-dashed rounded bg-gray-50 flex items-center justify-center text-gray-300"><Icons.ImageIcon className="w-5 h-5" /></div>}<div className="flex-1 space-y-2"><label className={`cursor-pointer text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 w-full active:scale-95 transition-all shadow-sm ${signatureUrl && !imgError ? 'bg-gray-400' : 'bg-blue-600'}`}><Icons.ImagePlus className="w-3 h-3" /> {signatureUrl && !imgError ? 'Thay đổi' : 'Tải lên'} <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} /></label>{!signatureUrl && <input type="text" value={settings.watermarkText} placeholder="Hoặc nhập text..." onChange={(e) => setSettings({...settings, watermarkText: e.target.value})} className="w-full p-2 border rounded-lg text-xs" />}</div></div></div>
                                     </div>}
                                 </div>
-                                <div className="p-4 border-t"><button onClick={() => { reProcessAll(); setIsSettingsOpen(false); }} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95 transition-transform">Áp dụng</button></div>
+                                <div className="p-4 border-t bg-gray-50 rounded-b-2xl"><button onClick={() => { reProcessAll(); setIsSettingsOpen(false); }} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"><Icons.Check className="w-5 h-5" /> Áp dụng</button></div>
                             </div>
                         </div>
                     )}

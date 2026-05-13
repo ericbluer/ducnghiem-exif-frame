@@ -4,17 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Bluer Exif Frame</title>
-    
+
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Bluer Frame">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#0a0a0a">
 
-    <!-- Icon App -->
     <link rel="apple-touch-icon" href="./icon.png">
     <link rel="icon" type="image/png" href="./icon.png">
 
-    <!-- Tailwind & Libs -->
+    <!-- Only Noto Serif Ethiopic — Montserrat removed (unused) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Ethiopic:wght@300;400;700&display=swap" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -23,583 +26,836 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <style>
+        :root {
+            --bg-base:        #0a0a0a;
+            --bg-card:        #141414;
+            --bg-elevated:    #1c1c1c;
+            --bg-input:       #222222;
+            --border:         #2e2e2e;
+            --text-primary:   #f0f0f0;
+            --text-secondary: #888888;
+            --text-muted:     #555555;
+            --accent:         #3b82f6;
+            --accent-dim:     rgba(59,130,246,0.15);
+            --danger:         #ef4444;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            background: var(--bg-base);
+            color: var(--text-primary);
+        }
         body {
             overscroll-behavior-y: none;
             -webkit-tap-highlight-color: transparent;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            padding-top: env(safe-area-inset-top);
+            padding-top:    env(safe-area-inset-top);
             padding-bottom: env(safe-area-inset-bottom);
-            background-color: #f9fafb;
             user-select: none;
-            height: 100vh;
             display: flex;
             flex-direction: column;
         }
-        
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Ethiopic:wght@100..900&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
-        
-        .modal-scroll::-webkit-scrollbar { width: 4px; }
-        .modal-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        
-        input[type=range] { -webkit-appearance: none; background: transparent; }
+
+        .modal-scroll::-webkit-scrollbar       { width: 4px; }
+        .modal-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        .modal-scroll::-webkit-scrollbar-track { background: transparent; }
+
+        /* Range — taller hit area for finger use */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+            width: 100%;
+            height: 24px;
+            cursor: pointer;
+        }
         input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 20px; width: 20px;
-            border-radius: 50%; background: #2563eb; margin-top: -8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            -webkit-appearance: none;
+            height: 22px; width: 22px;
+            border-radius: 50%;
+            background: var(--accent);
+            margin-top: -9px;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.2), 0 2px 6px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
         }
+        input[type=range]:active::-webkit-slider-thumb { transform: scale(1.15); }
         input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px;
+            height: 4px;
+            background: #2e2e2e;
+            border-radius: 2px;
         }
-        /* Hide spin buttons for number input */
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { 
-          -webkit-appearance: none; 
-          margin: 0; 
+
+        /* Hide number spinners */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+        input[type=text], input[type=number], input[type=date] {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.2s;
         }
+        input[type=text]:focus,
+        input[type=number]:focus,
+        input[type=date]:focus { border-color: var(--accent); }
+        input[type=text]::placeholder,
+        input[type=number]::placeholder { color: var(--text-muted); }
+
+        input[type=color] {
+            -webkit-appearance: none;
+            width: 36px; height: 36px;
+            border: none; border-radius: 8px;
+            cursor: pointer; padding: 0; background: none;
+        }
+        input[type=color]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 8px; }
+        input[type=color]::-webkit-color-swatch         { border: none; border-radius: 8px; }
+
+        input[type=checkbox] { accent-color: var(--accent); }
+
+        .btn-icon {
+            background: var(--bg-elevated); border: 1px solid var(--border);
+            border-radius: 10px; padding: 10px;
+            color: var(--text-primary); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s;
+        }
+        .btn-icon:active { background: var(--border); }
+
+        .hold-btn {
+            background: var(--bg-elevated); border: 1px solid var(--border);
+            border-radius: 10px; padding: 12px 16px;
+            color: var(--text-primary); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.1s, border-color 0.1s;
+            -webkit-user-select: none; user-select: none;
+        }
+        .hold-btn:active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+        .pixel-display {
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 8px; min-width: 72px; text-align: center;
+            color: var(--accent); font-weight: 700; font-size: 13px;
+            padding: 6px 8px; cursor: text; transition: border-color 0.2s;
+        }
+        .pixel-display:hover { border-color: var(--accent); }
+
+        .img-card   { background: #111; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+        .inner-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+        .sec-label  { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; display: block; }
+        .bottom-nav { background: rgba(10,10,10,0.95); backdrop-filter: blur(12px); border-top: 1px solid var(--border); }
+
+        @keyframes slideUp {
+            from { transform: translateY(24px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+        .modal-anim { animation: slideUp 0.22s cubic-bezier(0.16,1,0.3,1) both; }
     </style>
 </head>
 <body>
-    <div id="root" class="flex-1 flex flex-col h-full overflow-hidden"></div>
+    <div id="root" style="flex:1;display:flex;flex-direction:column;height:100%;overflow:hidden;"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
-        // --- CẤU HÌNH ---
-        const DEFAULT_LOGO = "./signature.png"; 
+        // ─────────────────────────────────────────────────────────────────────
+        // MODULE-LEVEL CONSTANTS  (never re-created on render)
+        // ─────────────────────────────────────────────────────────────────────
+        const DEFAULT_LOGO  = "./signature.png";
+        const JPEG_QUALITY  = 0.93; // visually identical to 1.0; ~60% smaller file
+        const CONCURRENCY   = 3;    // max parallel canvas renders
 
-        const CAMERA_DB = {
-            'rx100': 2.7, 'zv-1': 2.7, 'rx10': 2.7, 'rx1': 1.0,
-            'g7 x': 2.7, 'g5 x': 2.7, 'g9 x': 2.7, 's100': 4.6, 's110': 4.6, 's120': 4.6, 'ixus': 5.6,
-            'gr ii': 1.5, 'gr iii': 1.5, 'gr digital': 4.6, 'cx': 5.6, 'caplio': 5.6,
-            'x100': 1.5, 'x-': 1.5, 'gfx': 0.79, 'x10': 3.9, 'x20': 3.9, 'x30': 3.9,
-            'lx100': 2.2, 'lx10': 2.7, 'lx15': 2.7, 'tz': 5.6, 'zs': 5.6,
-            'tg-': 5.6, 'xz-': 4.7,
-            'coolpix a': 1.5, 'p900': 5.6, 'p1000': 5.6, '1 j': 2.7, '1 v': 2.7,
+        // Pre-computed once — avoids Object.entries() on every canvas draw
+        const CAMERA_DB_ENTRIES = Object.entries({
+            'rx100':2.7,'zv-1':2.7,'rx10':2.7,'rx1':1.0,
+            'g7 x':2.7,'g5 x':2.7,'g9 x':2.7,
+            's100':4.6,'s110':4.6,'s120':4.6,'ixus':5.6,
+            'gr ii':1.5,'gr iii':1.5,'gr digital':4.6,'cx':5.6,'caplio':5.6,
+            'x100':1.5,'x-':1.5,'gfx':0.79,'x10':3.9,'x20':3.9,'x30':3.9,
+            'lx100':2.2,'lx10':2.7,'lx15':2.7,'tz':5.6,'zs':5.6,
+            'tg-':5.6,'xz-':4.7,
+            'coolpix a':1.5,'p900':5.6,'p1000':5.6,'1 j':2.7,'1 v':2.7,
+        });
+
+        const DEFAULT_SETTINGS = {
+            borderWidthPercent:   15,
+            bottomPaddingPercent: 20,
+            backgroundColor: '#ffffff',
+            textColor:       '#222222',
+            showCameraModel: true,
+            showLens:        true,
+            showSettings:    true,
+            showDate:        false,
+            shadowEnabled:   true,
+            fontFamily:      '"Noto Serif Ethiopic", serif',
+            watermarkText:   '',
+            captionText:     '',
+            captionBold:     true,
+            captionSize:     0.75,
+            captionSpacing:  0,
+            infoOffsetY:     0,
         };
 
-        const Icon = ({ path, className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d={path} /></svg>
-        );
-        const Icons = {
-            Camera: (p) => <Icon {...p} path="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
-            Upload: (p) => <Icon {...p} path="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12" />,
-            ImageIcon: (p) => <Icon {...p} path="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z M8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z M21 15l-5-5L5 21" />,
-            Settings: (p) => <Icon {...p} path="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
-            Trash2: (p) => <Icon {...p} path="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6" />,
-            X: (p) => <Icon {...p} path="M18 6L6 18 M6 6l12 12" />,
-            Check: (p) => <Icon {...p} path="M20 6L9 17l-5-5" />,
-            Share: (p) => <Icon {...p} path="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8 M16 6l-4-4-4 4 M12 2v13" />,
-            AlertCircle: (p) => <Icon {...p} path="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
-            FolderDown: (p) => <Icon {...p} path="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v11z M12 11v6 M9 14l3 3 3-3" />,
-            Loader2: (p) => <svg className={`${p.className} animate-spin`} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>,
-            Info: (p) => <Icon {...p} path="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
-            Edit: (p) => <Icon {...p} path="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
-            ImagePlus: (p) => <Icon {...p} path="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7m4 10l-4-4-4 4m6-6l4 4m2-10v6m3-3h-6" />,
-            ArrowUp: (p) => <Icon {...p} path="M12 19V5 M5 12l7-7 7 7" />,
-            ArrowDown: (p) => <Icon {...p} path="M12 5v14 M19 12l-7 7-7-7" />,
-            RefreshCcw: (p) => <Icon {...p} path="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5 M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16 M21 21v-5h-5" />
-        };
+        // ─────────────────────────────────────────────────────────────────────
+        // PURE HELPERS  (outside component — zero closure / re-creation overhead)
+        // ─────────────────────────────────────────────────────────────────────
+        const cleanStr = (raw) => raw ? String(raw).replace(/\0/g, '').trim() : '';
 
-        // --- Helpers ---
         const formatExposureTime = (time) => {
             if (!time) return '';
             if (typeof time === 'string' && time.includes('/')) return time;
-            if (time >= 1) return time.toString();
-            const common = [2, 4, 8, 15, 30, 60, 125, 250, 500, 1000, 2000, 4000, 8000];
-            let best = `1/${Math.round(1/time)}`;
-            let minErr = Math.abs(time - 1/Math.round(1/time));
-            for (const den of common) {
+            if (time >= 1) return `${time}s`;
+            const COMMON = [2,4,8,15,30,60,125,250,500,1000,2000,4000,8000];
+            let best = Math.round(1 / time), minErr = Infinity;
+            for (const den of COMMON) {
                 const err = Math.abs(time - 1/den);
-                if (err < minErr && err < 0.0001) { minErr = err; best = `1/${den}s`; }
+                if (err < minErr) { minErr = err; best = den; }
             }
-            return best.endsWith('s') ? best : `1/${Math.round(1/time)}s`;
+            return `1/${best}s`;
         };
+
         const formatFNumber = (f) => {
             if (!f) return '';
             if (typeof f === 'string') {
                 if (f.startsWith('f/')) return f;
-                const num = parseFloat(f);
-                if (!isNaN(num)) return `f/${num}`;
-                return f;
+                const n = parseFloat(f);
+                return isNaN(n) ? f : `f/${n}`;
             }
             return `f/${Math.round(f * 10) / 10}`;
         };
+
         const formatISO = (iso) => {
             if (!iso) return '';
-            if (String(iso).toLowerCase().startsWith('iso')) return iso;
-            return `ISO ${iso}`;
+            const s = String(iso);
+            return s.toLowerCase().startsWith('iso') ? s : `ISO ${s}`;
         };
+
         const cleanModelName = (make, model) => {
-            const m = String(make || '').replace(/\0/g, '').trim();
-            let mo = String(model || '').replace(/\0/g, '').trim();
-            if (mo.toLowerCase().startsWith(m.toLowerCase())) mo = mo.substring(m.length).trim();
-            return `${m} ${mo}`.trim();
+            const mk = cleanStr(make);
+            let   mo = cleanStr(model);
+            if (mo.toLowerCase().startsWith(mk.toLowerCase())) mo = mo.slice(mk.length).trim();
+            return `${mk} ${mo}`.trim();
         };
+
         const formatFocalLength = (fl, fl35, make, model) => {
             if (typeof fl === 'string' && fl.includes('mm')) return fl;
-            if (fl35 && fl35 > 0) return `${Math.round(fl35)}mm`;
-            if (fl) {
-                const mStr = (String(make || '') + ' ' + String(model || '')).toLowerCase();
-                for (const [key, factor] of Object.entries(CAMERA_DB)) {
-                    if (mStr.includes(key)) return `${Math.round(fl * factor)}mm`;
-                }
-                if (mStr.includes('fujifilm') || mStr.includes('nikon') || mStr.includes('sony')) return `${Math.round(fl * 1.5)}mm`;
-                if (mStr.includes('olympus') || mStr.includes('panasonic')) return `${Math.round(fl * 2.0)}mm`;
-                if (mStr.includes('canon')) return `${Math.round(fl * 1.6)}mm`;
-                return `${Math.round(fl)}mm`;
+            if (fl35 > 0) return `${Math.round(fl35)}mm`;
+            if (!fl) return '';
+            const mStr = `${make || ''} ${model || ''}`.toLowerCase();
+            for (const [key, factor] of CAMERA_DB_ENTRIES) {
+                if (mStr.includes(key)) return `${Math.round(fl * factor)}mm`;
             }
-            return '';
+            if (mStr.includes('fujifilm') || mStr.includes('nikon') || mStr.includes('sony'))  return `${Math.round(fl * 1.5)}mm`;
+            if (mStr.includes('olympus')  || mStr.includes('panasonic'))                        return `${Math.round(fl * 2.0)}mm`;
+            if (mStr.includes('canon'))                                                          return `${Math.round(fl * 1.6)}mm`;
+            return `${Math.round(fl)}mm`;
         };
 
-        const DEFAULT_SETTINGS = {
-            borderWidthPercent: 15,
-            bottomPaddingPercent: 20,
-            backgroundColor: '#ffffff',
-            textColor: '#222222',
-            showCameraModel: true,
-            showSettings: true,
-            showDate: false,
-            shadowEnabled: true,
-            fontFamily: '"Noto Serif Ethiopic", serif',
-            watermarkText: '',
-            captionText: '',
-            captionBold: true,
-            captionSize: 0.75,
-            captionSpacing: 0,
-            infoOffsetY: 0, // New: Vertical offset for info line
+        // Parse EXIF tags from an ArrayBuffer
+        const readExifFromBuffer = (buffer) => {
+            if (!window.EXIF) return null;
+            const tags = window.EXIF.readFromBinaryFile(buffer);
+            if (!tags || (!tags.Make && !tags.Model && !tags.FocalLength)) return null;
+            return {
+                Make:                  tags.Make,
+                Model:                 tags.Model,
+                LensModel:             tags.LensModel || tags.Lens || '',
+                FNumber:               tags.FNumber,
+                ExposureTime:          tags.ExposureTime,
+                ISOSpeedRatings:       tags.ISOSpeedRatings,
+                FocalLength:           tags.FocalLength,
+                FocalLengthIn35mmFilm: tags.FocalLengthIn35mmFilm,
+                DateTimeOriginal:      tags.DateTimeOriginal,
+            };
         };
 
-        // --- MAIN APP ---
+        // Build the overlay info string (pure — no side effects)
+        const buildInfoText = (exif, cfg) => {
+            const parts = [];
+            if (cfg.showCameraModel) {
+                const cam = cleanModelName(exif.Make, exif.Model);
+                if (cam) parts.push(cam);
+            }
+            if (cfg.showLens && exif.LensModel) {
+                const lens = cleanStr(exif.LensModel);
+                if (lens) parts.push(lens);
+            }
+            if (cfg.showSettings) {
+                const specs = [];
+                const fl = formatFocalLength(exif.FocalLength, exif.FocalLengthIn35mmFilm, exif.Make, exif.Model);
+                if (fl)                   specs.push(fl);
+                if (exif.FNumber)         specs.push(formatFNumber(exif.FNumber));
+                if (exif.ExposureTime)    specs.push(formatExposureTime(exif.ExposureTime));
+                if (exif.ISOSpeedRatings) specs.push(formatISO(exif.ISOSpeedRatings));
+                if (specs.length)         parts.push(specs.join(' '));
+            }
+            if (cfg.showDate && exif.DateTimeOriginal) {
+                const raw = String(exif.DateTimeOriginal).split(' ')[0];
+                const p   = raw.split(':');
+                parts.push(p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : raw.replace(/:/g, '.'));
+            }
+            return parts.join('  |  ');
+        };
+
+        // ─────────────────────────────────────────────────────────────────────
+        // CANVAS DRAWING  (pure — receives all data, no component state access)
+        // ─────────────────────────────────────────────────────────────────────
+        const drawBlock = (ctx, block, x, y, baseFontSize, cfg) => {
+            if (block.type === 'logo-caption') {
+                const logoW  = block.height * (block.logo.width / block.logo.height);
+                const capSz  = baseFontSize * cfg.captionSize;
+                ctx.save();
+                ctx.font = `${cfg.captionBold ? '700' : '400'} ${capSz}px ${cfg.fontFamily}`;
+                if (cfg.captionSpacing > 0) try { ctx.letterSpacing = `${cfg.captionSpacing / 100}em`; } catch(_){}
+                const gap    = baseFontSize * 0.8;
+                const totalW = logoW + gap + ctx.measureText(block.caption).width;
+                const sx     = x - totalW / 2;
+                ctx.drawImage(block.logo, sx, y - block.height / 2, logoW, block.height);
+                ctx.textAlign = 'left';
+                ctx.fillText(block.caption, sx + logoW + gap, y);
+                ctx.restore();
+            } else if (block.type === 'image') {
+                const logoW = block.height * (block.content.width / block.content.height);
+                ctx.drawImage(block.content, x - logoW / 2, y - block.height / 2, logoW, block.height);
+            } else {
+                ctx.save();
+                ctx.textAlign = 'center';
+                if (block.style === 'small') {
+                    ctx.font = `300 ${baseFontSize * 0.55}px ${cfg.fontFamily}`;
+                    try { ctx.letterSpacing = '0.15em'; } catch(_){}
+                } else if (block.style === 'caption') {
+                    ctx.font = `${cfg.captionBold ? '700' : '400'} ${baseFontSize * cfg.captionSize}px ${cfg.fontFamily}`;
+                    if (cfg.captionSpacing > 0) try { ctx.letterSpacing = `${cfg.captionSpacing / 100}em`; } catch(_){}
+                } else {
+                    ctx.font = `600 ${baseFontSize}px ${cfg.fontFamily}`;
+                }
+                ctx.fillText(block.content, x, y);
+                ctx.restore();
+            }
+        };
+
+        const drawFrameOnCanvas = (canvas, ctx, sourceImg, exif, cfg, logoImg) => {
+            const srcW = sourceImg.naturalWidth  || sourceImg.width;
+            const srcH = sourceImg.naturalHeight || sourceImg.height;
+            if (!srcW || !srcH) return;
+
+            const short      = Math.min(srcW, srcH);
+            const baseP      = Math.floor(short * cfg.borderWidthPercent / 100);
+            const isLandscape = srcW > srcH;
+            const ratio       = isLandscape ? 5/4 : 4/5;
+            const minBottom   = Math.floor(short * cfg.bottomPaddingPercent / 100 * (isLandscape ? 1.0 : 1.25));
+
+            // Calculate canvas dimensions
+            let cW, cH, topP, sideP;
+            const wTry   = srcW + baseP * 2;
+            const calcBot = wTry / ratio - srcH - baseP;
+
+            if (calcBot >= minBottom) {
+                cW = wTry; cH = wTry / ratio; topP = baseP; sideP = baseP;
+            } else {
+                cH    = srcH + baseP + minBottom;
+                cW    = cH * ratio;
+                topP  = baseP;
+                sideP = (cW - srcW) / 2;
+            }
+
+            canvas.width  = cW;
+            canvas.height = cH;
+
+            // Fill background
+            ctx.fillStyle = cfg.backgroundColor;
+            ctx.fillRect(0, 0, cW, cH);
+
+            // Draw photo (with optional shadow)
+            ctx.save();
+            if (cfg.shadowEnabled) {
+                ctx.shadowColor   = 'rgba(0,0,0,0.25)';
+                ctx.shadowBlur    = short * 0.04;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = short * 0.01;
+            }
+            ctx.drawImage(sourceImg, Math.floor(sideP), Math.floor(topP), srcW, srcH);
+            ctx.restore();
+
+            // Overlay text / logo
+            ctx.fillStyle    = cfg.textColor;
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'middle';
+
+            const fs          = short * 0.035; // baseFontSize
+            const cx          = cW / 2;
+            const lineH       = fs * 1.5;
+            const logoH       = fs * 2.5;
+            const gap         = fs * 0.4;
+            const marginBot   = fs * 2.2;
+            const offsetPx    = (cfg.infoOffsetY || 0) * (short / 1000);
+            const captionText = cfg.captionText;
+            const infoText    = buildInfoText(exif, cfg);
+
+            // Build render blocks
+            const blocks = [];
+            if (logoImg && captionText) {
+                blocks.push({ type: 'logo-caption', logo: logoImg, caption: captionText, height: logoH });
+            } else {
+                if (captionText)       blocks.push({ type: 'text', content: captionText, style: 'caption', height: lineH });
+                if (logoImg)           blocks.push({ type: 'image', content: logoImg, height: logoH });
+                else if (cfg.watermarkText) blocks.push({ type: 'text', content: cfg.watermarkText, style: 'bold', height: lineH });
+            }
+            if (infoText) blocks.push({ type: 'text', content: infoText, style: 'small', height: lineH });
+
+            const infoBlock  = blocks.find(b => b.style === 'small');
+            const upperBlock = blocks.find(b => b !== infoBlock);
+
+            if (infoBlock) {
+                const infoY  = cH - marginBot + offsetPx;
+                drawBlock(ctx, infoBlock, cx, infoY, fs, cfg);
+                if (upperBlock) {
+                    drawBlock(ctx, upperBlock, cx, infoY - infoBlock.height / 2 - gap - upperBlock.height / 2, fs, cfg);
+                }
+            } else if (upperBlock) {
+                drawBlock(ctx, upperBlock, cx, cH - marginBot + offsetPx, fs, cfg);
+            }
+        };
+
+        // ─────────────────────────────────────────────────────────────────────
+        // SUB-COMPONENTS
+        // ─────────────────────────────────────────────────────────────────────
+
+        // Press-and-hold repeating button
+        function HoldButton({ onStep, children, className, style }) {
+            const timerRef    = useRef(null);
+            const intervalRef = useRef(null);
+            // Keep ref in sync so interval always calls the latest onStep
+            const cbRef = useRef(onStep);
+            useEffect(() => { cbRef.current = onStep; });
+
+            const start = useCallback((e) => {
+                e.preventDefault();
+                cbRef.current();
+                timerRef.current = setTimeout(() => {
+                    intervalRef.current = setInterval(() => cbRef.current(), 55);
+                }, 340);
+            }, []);
+
+            const stop = useCallback(() => {
+                clearTimeout(timerRef.current);
+                clearInterval(intervalRef.current);
+            }, []);
+
+            useEffect(() => () => stop(), [stop]);
+
+            return (
+                <button className={className} style={style}
+                    onMouseDown={start} onMouseUp={stop} onMouseLeave={stop}
+                    onTouchStart={start} onTouchEnd={stop} onTouchCancel={stop}>
+                    {children}
+                </button>
+            );
+        }
+
+        // Slider with ± hold buttons on each side
+        const SliderRow = React.memo(function SliderRow({ label, value, min, max, onChange, unit = '%', step = 1 }) {
+            return (
+                <div>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                        <span style={{ fontSize:14, fontWeight:500 }}>{label}</span>
+                        <span style={{ background:'var(--bg-elevated)', border:'1px solid var(--border)', color:'var(--accent)', fontSize:12, fontWeight:700, borderRadius:7, minWidth:48, textAlign:'center', padding:'3px 8px' }}>
+                            {value}{unit}
+                        </span>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <HoldButton className="hold-btn" onStep={() => onChange(Math.max(min, value - step))}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/></svg>
+                        </HoldButton>
+                        <input type="range" min={min} max={max} step={step} value={value}
+                            onChange={e => onChange(Number(e.target.value))} style={{ flex:1 }} />
+                        <HoldButton className="hold-btn" onStep={() => onChange(Math.min(max, value + step))}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                        </HoldButton>
+                    </div>
+                </div>
+            );
+        });
+
+        // Info-offset: hold-to-repeat arrows + click-to-type value
+        function InfoOffsetControl({ value, onChange }) {
+            const [editing, setEditing] = useState(false);
+            const [tempVal, setTempVal] = useState(String(value));
+            const inputRef = useRef(null);
+
+            useEffect(() => { if (!editing) setTempVal(String(value)); }, [value, editing]);
+            useEffect(() => { if (editing)  inputRef.current?.select(); }, [editing]);
+
+            const commit = () => {
+                const n = parseInt(tempVal, 10);
+                if (!isNaN(n)) onChange(n); else setTempVal(String(value));
+                setEditing(false);
+            };
+
+            return (
+                <div>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                        <span style={{ fontSize:14, fontWeight:500 }}>Vị trí dòng info</span>
+                        {editing ? (
+                            <input ref={inputRef} type="number" value={tempVal}
+                                onChange={e => setTempVal(e.target.value)}
+                                onBlur={commit}
+                                onKeyDown={e => { if (e.key==='Enter') commit(); if (e.key==='Escape') { setEditing(false); setTempVal(String(value)); }}}
+                                style={{ width:80, textAlign:'center', background:'var(--bg-input)', border:'1px solid var(--accent)', borderRadius:8, color:'var(--accent)', fontWeight:700, fontSize:13, padding:'4px 8px' }}
+                                autoFocus />
+                        ) : (
+                            <span className="pixel-display" title="Nhấn để nhập trực tiếp" onClick={() => setEditing(true)}>
+                                {value > 0 ? `+${value}` : value} px
+                            </span>
+                        )}
+                    </div>
+                    <div className="inner-card" style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <HoldButton className="hold-btn" style={{ flex:1 }} onStep={() => onChange(value - 1)}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                            <span style={{ fontSize:12, marginLeft:6, color:'var(--text-secondary)' }}>Lên</span>
+                        </HoldButton>
+                        <span style={{ fontSize:11, color:'var(--text-muted)', flexShrink:0 }}>giữ để chạy</span>
+                        <HoldButton className="hold-btn" style={{ flex:1 }} onStep={() => onChange(value + 1)}>
+                            <span style={{ fontSize:12, marginRight:6, color:'var(--text-secondary)' }}>Xuống</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                        </HoldButton>
+                    </div>
+                </div>
+            );
+        }
+
+        // Inline SVG icons — plain objects, no wrapper component
+        const IC = {
+            Camera:  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>,
+            Upload:  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>,
+            ImgOff:  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21"/></svg>,
+            ImgSm:   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21"/></svg>,
+            Settings:<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>,
+            Trash:   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>,
+            X:       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>,
+            Check:   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>,
+            Share:   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>,
+            DlAll:   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v11zM12 11v6M9 14l3 3 3-3"/></svg>,
+            Spin:    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>,
+            Edit:    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+            ImgPlus: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7m4 10l-4-4-4 4m6-6l4 4m2-10v6m3-3h-6"/></svg>,
+            Reset:   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16M21 21v-5h-5"/></svg>,
+            Alert:   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>,
+        };
+
+        // ─────────────────────────────────────────────────────────────────────
+        // MAIN APP
+        // ─────────────────────────────────────────────────────────────────────
         function App() {
-            const [images, setImages] = useState([]);
-            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-            const [editingExifId, setEditingExifId] = useState(null);
-            const [activeTab, setActiveTab] = useState('layout');
-            const [libsLoaded, setLibsLoaded] = useState(false);
-            
-            const [signatureUrl, setSignatureUrl] = useState(null);
-            const [imgError, setImgError] = useState(false);
-            const signatureRef = useRef(null);
+            const [images,         setImages]         = useState([]);
+            const [settingsOpen,   setSettingsOpen]   = useState(false);
+            const [editingId,      setEditingId]      = useState(null);
+            const [activeTab,      setActiveTab]      = useState('layout');
+            const [libsLoaded,     setLibsLoaded]     = useState(false);
+            const [signatureUrl,   setSignatureUrl]   = useState(null);
+            const [sigError,       setSigError]       = useState(false);
+            const [settings,       setSettings]       = useState(DEFAULT_SETTINGS);
+            const [manualForm,     setManualForm]     = useState({ make:'',model:'',lens:'',focalLength:'',aperture:'',shutter:'',iso:'',date:'' });
 
-            const [manualForm, setManualForm] = useState({
-                make: '', model: '', focalLength: '', aperture: '', shutter: '', iso: '', date: ''
-            });
+            // logoImg ref — canvas drawing reads this without causing re-renders
+            const logoRef = useRef(null);
+            // settingsRef — canvas jobs always use the latest settings, never a stale closure
+            const settingsRef = useRef(settings);
+            useEffect(() => { settingsRef.current = settings; }, [settings]);
+            // Concurrency guard — prevent double-processing the same image
+            const processingSet = useRef(new Set());
 
-            const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-
+            // ── Init ──────────────────────────────────────────────────────
             useEffect(() => {
-                const checkLibs = setInterval(() => {
-                    if (window.EXIF) {
-                        setLibsLoaded(true);
-                        clearInterval(checkLibs);
-                    }
+                const poll = setInterval(() => {
+                    if (window.EXIF) { setLibsLoaded(true); clearInterval(poll); }
                 }, 100);
-
-                const savedSettings = localStorage.getItem('bluer_settings');
-                if (savedSettings) {
-                    try {
-                        const parsed = JSON.parse(savedSettings);
-                        // Merge with defaults to ensure new settings exist
-                        setSettings({...DEFAULT_SETTINGS, ...parsed});
-                    } catch (e) { console.error(e); }
-                }
-
+                try {
+                    const saved = localStorage.getItem('bluer_settings');
+                    if (saved) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
+                } catch(_) {}
                 const savedSig = localStorage.getItem('bluer_signature');
-                if (savedSig) {
-                    setSignatureUrl(savedSig);
-                } else if (DEFAULT_LOGO) {
-                    setSignatureUrl(DEFAULT_LOGO);
-                }
-
-                return () => clearInterval(checkLibs);
+                setSignatureUrl(savedSig || DEFAULT_LOGO || null);
+                return () => clearInterval(poll);
             }, []);
 
             useEffect(() => {
                 localStorage.setItem('bluer_settings', JSON.stringify(settings));
             }, [settings]);
 
+            // Load signature into ref (no render trigger on canvas use)
             useEffect(() => {
-                setImgError(false);
-                if (signatureUrl) {
-                    const img = new Image();
-                    img.src = signatureUrl;
-                    img.onload = () => { signatureRef.current = img; reProcessAll(); };
-                    img.onerror = () => { 
-                         console.warn("Could not load signature image:", signatureUrl);
-                         setImgError(true);
-                         signatureRef.current = null; 
-                         reProcessAll(); 
-                    };
-                } else {
-                    signatureRef.current = null;
-                    reProcessAll();
-                }
+                setSigError(false);
+                if (!signatureUrl) { logoRef.current = null; return; }
+                const img   = new Image();
+                img.src     = signatureUrl;
+                img.onload  = () => { logoRef.current = img; };
+                img.onerror = () => { setSigError(true); logoRef.current = null; };
             }, [signatureUrl]);
 
-            const handleFileUpload = (e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                    const newImages = Array.from(e.target.files).map(file => ({
-                        id: Math.random().toString(36).substr(2, 9),
-                        file,
-                        previewUrl: URL.createObjectURL(file),
-                        finalUrl: null,
-                        exif: null,
-                        status: 'pending',
-                        manualExif: null
-                    }));
-                    setImages(prev => [...prev, ...newImages]);
-                    setTimeout(() => processQueue(newImages), 100);
-                    setIsSettingsOpen(false);
-                    e.target.value = '';
-                }
-            };
-
-            const handleSignatureUpload = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onloadend = () => {
+            // ── Core: render one image item → { finalUrl, exif } ─────────
+            const renderItem = useCallback(async (item) => {
+                // Use manualExif if available, otherwise read EXIF from file
+                let exif = item.manualExif || null;
+                if (!exif) {
                     try {
-                        localStorage.setItem('bluer_signature', reader.result);
-                        setSignatureUrl(reader.result);
-                    } catch (err) {
-                        alert("File quá lớn.");
-                        setSignatureUrl(reader.result);
-                    }
-                };
-                reader.readAsDataURL(file);
+                        const buf = await new Promise((res, rej) => {
+                            const r = new FileReader();
+                            r.onload  = e => res(e.target.result);
+                            r.onerror = rej;
+                            r.readAsArrayBuffer(item.file);
+                        });
+                        exif = readExifFromBuffer(buf);
+                    } catch(_) {}
+                }
+                return new Promise((resolve) => {
+                    const src = new Image();
+                    src.src   = item.previewUrl;
+                    src.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx    = canvas.getContext('2d');
+                        // Always read settingsRef — never a stale closure
+                        drawFrameOnCanvas(canvas, ctx, src, exif || {}, settingsRef.current, logoRef.current);
+                        resolve({ finalUrl: canvas.toDataURL('image/jpeg', JPEG_QUALITY), exif });
+                    };
+                    src.onerror = () => resolve(null);
+                });
+            }, []);
+
+            // Process one item with status updates + concurrency guard
+            const processOne = useCallback(async (item) => {
+                if (processingSet.current.has(item.id)) return;
+                processingSet.current.add(item.id);
+                setImages(prev => prev.map(p => p.id === item.id ? { ...p, status: 'processing' } : p));
+
+                const result = await renderItem(item);
+
+                processingSet.current.delete(item.id);
+                setImages(prev => prev.map(p =>
+                    p.id === item.id
+                        ? result
+                            ? { ...p, finalUrl: result.finalUrl, exif: result.exif, status: 'done' }
+                            : { ...p, status: 'error' }
+                        : p
+                ));
+            }, [renderItem]);
+
+            // Process N items with max CONCURRENCY parallel workers
+            const processMany = useCallback(async (items) => {
+                const queue = [...items];
+                await Promise.all(
+                    Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
+                        while (queue.length) await processOne(queue.shift());
+                    })
+                );
+            }, [processOne]);
+
+            // Re-process all non-busy images (reads current images via setState callback)
+            const reProcessAll = useCallback(() => {
+                setImages(prev => {
+                    const ready = prev.filter(i => i.status !== 'processing');
+                    if (ready.length) processMany(ready);
+                    return prev; // no state mutation, just triggering side-effect
+                });
+            }, [processMany]);
+
+            // ── File upload ───────────────────────────────────────────────
+            const handleFileUpload = (e) => {
+                if (!e.target.files?.length) return;
+                const newItems = Array.from(e.target.files).map(file => ({
+                    id:         Math.random().toString(36).slice(2, 11),
+                    file,
+                    previewUrl: URL.createObjectURL(file),
+                    finalUrl:   null,
+                    exif:       null,
+                    manualExif: null,
+                    status:     'pending',
+                }));
+                setImages(prev => [...prev, ...newItems]);
+                processMany(newItems); // pass directly — no setTimeout needed
+                setSettingsOpen(false);
+                e.target.value = '';
             };
 
-            const removeSignature = () => {
+            // ── Signature ─────────────────────────────────────────────────
+            const handleSigUpload = (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const r = new FileReader();
+                r.onloadend = () => {
+                    try { localStorage.setItem('bluer_signature', r.result); } catch(_) {}
+                    setSignatureUrl(r.result);
+                };
+                r.readAsDataURL(file);
+                e.target.value = '';
+            };
+            const removeSig = () => {
                 setSignatureUrl(null);
+                logoRef.current = null;
                 localStorage.removeItem('bluer_signature');
             };
 
-            const processQueue = async (queue) => {
-                for (const imgItem of queue) { await processSingleImage(imgItem); }
-            };
-
-            const processSingleImage = async (imgItem) => {
-                setImages(prev => prev.map(img => img.id === imgItem.id ? { ...img, status: 'processing' } : img));
-                
-                let extractedExif = imgItem.manualExif || null;
-                if (!extractedExif && !imgItem.manualExif) {
-                    try {
-                        const arrayBuffer = await new Promise((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = e => resolve(e.target.result);
-                            reader.onerror = reject;
-                            reader.readAsArrayBuffer(imgItem.file);
-                        });
-                        if (window.EXIF) {
-                            const tags = window.EXIF.readFromBinaryFile(arrayBuffer);
-                            if (tags && (tags.Make || tags.Model || tags.FocalLength)) {
-                                extractedExif = {
-                                    Make: tags.Make, Model: tags.Model, FNumber: tags.FNumber,
-                                    ExposureTime: tags.ExposureTime, ISOSpeedRatings: tags.ISOSpeedRatings,
-                                    FocalLength: tags.FocalLength, FocalLengthIn35mmFilm: tags.FocalLengthIn35mmFilm,
-                                    DateTimeOriginal: tags.DateTimeOriginal,
-                                };
-                            }
-                        }
-                    } catch (err) {}
-                }
-
-                return new Promise((resolve) => {
-                    const originalImg = new Image();
-                    originalImg.crossOrigin = "Anonymous";
-                    originalImg.src = imgItem.previewUrl;
-                    originalImg.onload = () => {
-                        const finalCanvas = document.createElement('canvas');
-                        const finalCtx = finalCanvas.getContext('2d');
-                        if (finalCtx) {
-                            drawFrameOnCanvas(finalCanvas, finalCtx, originalImg, extractedExif || {}, settings);
-                            const finalUrl = finalCanvas.toDataURL('image/jpeg', 1.0);
-                            setImages(prev => prev.map(p => p.id === imgItem.id ? { ...p, finalUrl, exif: extractedExif, status: 'done' } : p));
-                        }
-                        resolve();
-                    };
-                    originalImg.onerror = () => {
-                        setImages(prev => prev.map(p => p.id === imgItem.id ? { ...p, status: 'error' } : p));
-                        resolve();
-                    }
-                });
-            };
-
-            const reProcessAll = () => { if(images.length > 0) processQueue(images); };
-
-            const openManualEdit = (img) => {
-                setEditingExifId(img.id);
+            // ── Manual EXIF ───────────────────────────────────────────────
+            const openEdit = (img) => {
+                setEditingId(img.id);
                 const d = img.exif || {};
                 setManualForm({
-                    make: d.Make||'', model: d.Model||'', focalLength: d.FocalLengthIn35mmFilm||d.FocalLength||'',
-                    aperture: d.FNumber||'', shutter: d.ExposureTime?(d.ExposureTime<1?`1/${Math.round(1/d.ExposureTime)}`:d.ExposureTime):'',
-                    iso: d.ISOSpeedRatings||'', date: d.DateTimeOriginal?d.DateTimeOriginal.split(' ')[0].replace(/:/g,'-'):''
+                    make:        d.Make   || '',
+                    model:       d.Model  || '',
+                    lens:        d.LensModel || '',
+                    focalLength: d.FocalLengthIn35mmFilm || d.FocalLength || '',
+                    aperture:    d.FNumber || '',
+                    shutter:     d.ExposureTime
+                                    ? (d.ExposureTime < 1 ? `1/${Math.round(1/d.ExposureTime)}` : String(d.ExposureTime))
+                                    : '',
+                    iso:         d.ISOSpeedRatings || '',
+                    date:        d.DateTimeOriginal ? d.DateTimeOriginal.split(' ')[0].replace(/:/g, '-') : '',
                 });
             };
-            const saveManualExif = () => {
-                const idx = images.findIndex(i => i.id === editingExifId);
-                if (idx === -1) return;
+
+            const saveEdit = () => {
+                const img = images.find(i => i.id === editingId);
+                if (!img) return;
                 const newExif = {
-                    Make: manualForm.make, Model: manualForm.model, FNumber: manualForm.aperture, ExposureTime: manualForm.shutter,
-                    ISOSpeedRatings: manualForm.iso, FocalLengthIn35mmFilm: manualForm.focalLength, FocalLength: 0,
-                    DateTimeOriginal: manualForm.date ? manualForm.date.replace(/-/g, ':') + " 00:00:00" : ''
+                    Make:                  manualForm.make,
+                    Model:                 manualForm.model,
+                    LensModel:             manualForm.lens,
+                    FNumber:               manualForm.aperture,
+                    ExposureTime:          manualForm.shutter,
+                    ISOSpeedRatings:       manualForm.iso,
+                    FocalLengthIn35mmFilm: manualForm.focalLength,
+                    FocalLength:           0,
+                    DateTimeOriginal:      manualForm.date ? `${manualForm.date.replace(/-/g, ':')} 00:00:00` : '',
                 };
-                setImages(p => { const n = [...p]; n[idx] = { ...n[idx], manualExif: newExif, status: 'processing' }; return n; });
-                setEditingExifId(null);
-                processSingleImage({ ...images[idx], manualExif: newExif });
+                const updated = { ...img, manualExif: newExif, status: 'pending' };
+                setImages(prev => prev.map(p => p.id === editingId ? updated : p));
+                setEditingId(null);
+                processOne(updated);
             };
 
-            const drawFrameOnCanvas = (canvas, ctx, sourceImg, exif, cfg) => {
-                const sourceW = sourceImg.naturalWidth || sourceImg.width;
-                const sourceH = sourceImg.naturalHeight || sourceImg.height;
-                if (!sourceW || !sourceH) return;
-
-                const shortSide = Math.min(sourceW, sourceH);
-                const baseP = Math.floor(shortSide * (cfg.borderWidthPercent / 100));
-                
-                const isLandscape = sourceW > sourceH;
-                const targetRatio = isLandscape ? 5/4 : 4/5;
-                const minPaddingScale = isLandscape ? 1.0 : 1.25; 
-                const minBottomRequired = Math.floor(shortSide * (cfg.bottomPaddingPercent / 100) * minPaddingScale);
-
-                let wOut = sourceW + (baseP * 2);
-                let hOut = wOut / targetRatio;
-                let calcBottom = hOut - sourceH - baseP;
-
-                let canvasW, canvasH, topP, bottomP, sideP;
-
-                if (calcBottom >= minBottomRequired) {
-                    canvasW = wOut; canvasH = hOut; topP = baseP; sideP = baseP; bottomP = calcBottom; 
-                } else {
-                    let hOutFixed = sourceH + baseP + minBottomRequired;
-                    let wOutFixed = hOutFixed * targetRatio;
-                    canvasH = hOutFixed; canvasW = wOutFixed; topP = baseP; bottomP = minBottomRequired;
-                    sideP = (canvasW - sourceW) / 2;
-                }
-                
-                canvas.width = canvasW; canvas.height = canvasH;
-
-                ctx.fillStyle = cfg.backgroundColor;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                ctx.save();
-                if (cfg.shadowEnabled) {
-                    ctx.shadowColor = "rgba(0, 0, 0, 0.25)"; 
-                    ctx.shadowBlur = shortSide * 0.04;
-                    ctx.shadowOffsetX = 0; ctx.shadowOffsetY = shortSide * 0.01;
-                }
-                ctx.drawImage(sourceImg, Math.floor(sideP), Math.floor(topP), sourceW, sourceH);
-                ctx.restore();
-
-                // Text
-                ctx.fillStyle = cfg.textColor;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const baseFontSize = shortSide * 0.035; 
-                const centerX = canvas.width / 2;
-                try { ctx.letterSpacing = "0.234em"; } catch(e) {} 
-
-                const logoImg = signatureRef.current;
-                const captionText = cfg.captionText;
-                
-                const infoParts = [];
-                if (cfg.showCameraModel) {
-                    const cam = cleanModelName(exif.Make, exif.Model);
-                    if (cam) infoParts.push(cam);
-                }
-                if (cfg.showSettings) {
-                    const specs = [];
-                    const fl = formatFocalLength(exif.FocalLength, exif.FocalLengthIn35mmFilm, exif.Make, exif.Model);
-                    if (fl) specs.push(fl);
-                    if (exif.FNumber) specs.push(formatFNumber(exif.FNumber));
-                    if (exif.ExposureTime) specs.push(formatExposureTime(exif.ExposureTime));
-                    if (exif.ISOSpeedRatings) specs.push(formatISO(exif.ISOSpeedRatings));
-                    if (specs.length > 0) infoParts.push(specs.join(' ')); 
-                }
-                if (cfg.showDate && exif.DateTimeOriginal) {
-                    const rawDateStr = String(exif.DateTimeOriginal || '').split(' ')[0]; 
-                    const parts = rawDateStr.split(':');
-                    const datePart = parts.length === 3 
-                        ? `${parts[2]}.${parts[1]}.${parts[0]}` 
-                        : rawDateStr.replace(/:/g, '.');
-                    infoParts.push(datePart);
-                }
-                const infoText = infoParts.join('  |  ');
-
-                let contentBlocks = [];
-                const lineHeight = baseFontSize * 1.5;
-                const logoHeight = baseFontSize * 2.5; 
-
-                if (logoImg && captionText) {
-                    contentBlocks.push({ type: 'logo-caption', logo: logoImg, caption: captionText, height: logoHeight });
-                } else {
-                    if (captionText) contentBlocks.push({ type: 'text', content: captionText, style: 'caption', height: lineHeight });
-                    if (logoImg) contentBlocks.push({ type: 'image', content: logoImg, height: logoHeight });
-                    else if (cfg.watermarkText) contentBlocks.push({ type: 'text', content: cfg.watermarkText, style: 'bold', height: lineHeight });
-                }
-
-                if (infoText) contentBlocks.push({ type: 'text', content: infoText, style: 'small', height: lineHeight });
-
-                const marginBottom = baseFontSize * 2.2; 
-                const gapBetweenBlocks = baseFontSize * 0.4;
-                // Calculate pixel offset based on canvas size for consistency
-                const pixelOffset = (cfg.infoOffsetY || 0) * (shortSide / 1000); 
-
-                const infoBlock = contentBlocks.find(b => b.style === 'small');
-                const upperBlock = contentBlocks.find(b => b.type === 'logo-caption' || b.style === 'caption' || b.type === 'image' || b.style === 'bold');
-
-                if (infoBlock) {
-                    const infoY = canvasH - marginBottom + pixelOffset;
-                    drawBlock(ctx, infoBlock, centerX, infoY, baseFontSize, cfg);
-                    if (upperBlock) {
-                        const upperY = infoY - (infoBlock.height / 2) - gapBetweenBlocks - (upperBlock.height / 2);
-                        drawBlock(ctx, upperBlock, centerX, upperY, baseFontSize, cfg);
-                    }
-                } else if (upperBlock) {
-                    const upperY = canvasH - marginBottom + pixelOffset;
-                    drawBlock(ctx, upperBlock, centerX, upperY, baseFontSize, cfg);
-                }
+            // ── Save / Share ──────────────────────────────────────────────
+            const toFile = async (dataUrl, name) => {
+                const blob = await (await fetch(dataUrl)).blob();
+                return new File([blob], name, { type: 'image/jpeg' });
             };
 
-            const drawBlock = (ctx, block, x, y, baseFontSize, cfg) => {
-                if (block.type === 'logo-caption') {
-                    const sRatio = block.logo.width / block.logo.height;
-                    const logoW = block.height * sRatio; 
-                    
-                    ctx.save();
-                    const capSize = baseFontSize * cfg.captionSize;
-                    ctx.font = `${cfg.captionBold ? '700' : '400'} ${capSize}px ${cfg.fontFamily}`;
-                    if (cfg.captionSpacing > 0) { try { ctx.letterSpacing = (cfg.captionSpacing / 100) + "em"; } catch(e){} }
-                    
-                    const capMetrics = ctx.measureText(block.caption);
-                    const gapLogoCap = baseFontSize * 0.8;
-                    const totalRowW = logoW + gapLogoCap + capMetrics.width;
-                    const startX = x - (totalRowW / 2);
-                    
-                    ctx.drawImage(block.logo, startX, y - (block.height/2), logoW, block.height);
-                    ctx.textAlign = 'left';
-                    ctx.fillText(block.caption, startX + logoW + gapLogoCap, y);
-                    ctx.restore();
-                } else if (block.type === 'image') {
-                    const sRatio = block.content.width / block.content.height;
-                    const logoW = block.height * sRatio;
-                    ctx.drawImage(block.content, x - (logoW/2), y - (block.height/2), logoW, block.height);
-                } else {
-                    ctx.save();
-                    ctx.textAlign = 'center';
-                    if (block.style === 'small') {
-                        ctx.font = `300 ${baseFontSize * 0.55}px ${cfg.fontFamily}`; // Increased to 0.55
-                        try { ctx.letterSpacing = "0.15em"; } catch(e){}
-                    } else if (block.style === 'caption') {
-                        const size = baseFontSize * cfg.captionSize;
-                        ctx.font = `${cfg.captionBold ? '700' : '400'} ${size}px ${cfg.fontFamily}`; 
-                        if (cfg.captionSpacing > 0) { try { ctx.letterSpacing = (cfg.captionSpacing / 100) + "em"; } catch(e){} }
-                    } else {
-                        ctx.font = `600 ${baseFontSize}px ${cfg.fontFamily}`;
-                    }
-                    ctx.fillText(block.content, x, y);
-                    ctx.restore();
-                }
-            }
-
-            const handleShareOrSaveSingle = async (img) => {
+            const shareSingle = async (img) => {
                 if (!img.finalUrl) return;
-                const fileName = `${img.file.name.replace(/\.[^/.]+$/, "")}_framed.jpg`;
+                const name = `${img.file.name.replace(/\.[^/.]+$/, '')}_framed.jpg`;
                 if (navigator.share && navigator.canShare) {
                     try {
-                        const res = await fetch(img.finalUrl);
-                        const blob = await res.blob();
-                        const file = new File([blob], fileName, { type: 'image/jpeg' });
-                        if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
-                    } catch (e) {}
+                        const f = await toFile(img.finalUrl, name);
+                        if (navigator.canShare({ files:[f] })) { await navigator.share({ files:[f] }); return; }
+                    } catch(_) {}
                 }
-                const link = document.createElement('a');
-                link.href = img.finalUrl; link.download = fileName;
-                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                const a = Object.assign(document.createElement('a'), { href: img.finalUrl, download: name });
+                document.body.appendChild(a); a.click(); a.remove();
             };
 
-            const handleSaveAll = async () => {
-                const doneImages = images.filter(i => i.status === 'done' && i.finalUrl);
-                if (doneImages.length === 0) return;
+            const saveAll = async () => {
+                const done = images.filter(i => i.status === 'done' && i.finalUrl);
+                if (!done.length) return;
                 if (navigator.share && navigator.canShare) {
                     try {
-                        const files = await Promise.all(doneImages.map(async (img) => {
-                            const res = await fetch(img.finalUrl);
-                            const blob = await res.blob();
-                            return new File([blob], `${img.file.name.replace(/\.[^/.]+$/, "")}_framed.jpg`, { type: 'image/jpeg' });
-                        }));
+                        const files = await Promise.all(done.map(i => toFile(i.finalUrl, `${i.file.name.replace(/\.[^/.]+$/, '')}_framed.jpg`)));
                         if (navigator.canShare({ files })) { await navigator.share({ files }); return; }
-                    } catch (e) {}
+                    } catch(_) {}
                 }
                 if (window.JSZip) {
                     const zip = new window.JSZip();
-                    doneImages.forEach(img => zip.file(`${img.file.name.replace(/\.[^/.]+$/, "")}_framed.jpg`, img.finalUrl.split(',')[1], {base64: true}));
-                    const content = await zip.generateAsync({ type: "blob" });
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(content); link.download = "bluer_exif_frames.zip";
-                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                    done.forEach(i => zip.file(`${i.file.name.replace(/\.[^/.]+$/, '')}_framed.jpg`, i.finalUrl.split(',')[1], { base64:true }));
+                    const blob = await zip.generateAsync({ type:'blob' });
+                    const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'bluer_frames.zip' });
+                    document.body.appendChild(a); a.click(); a.remove();
                 }
             };
 
-            const resetSettings = (tab) => {
-                let newSettings = { ...settings };
-                if (tab === 'layout') {
-                    newSettings.borderWidthPercent = DEFAULT_SETTINGS.borderWidthPercent;
-                    newSettings.bottomPaddingPercent = DEFAULT_SETTINGS.bottomPaddingPercent;
-                    newSettings.shadowEnabled = DEFAULT_SETTINGS.shadowEnabled;
-                    newSettings.infoOffsetY = DEFAULT_SETTINGS.infoOffsetY;
-                } else if (tab === 'color') {
-                    newSettings.backgroundColor = DEFAULT_SETTINGS.backgroundColor;
-                    newSettings.textColor = DEFAULT_SETTINGS.textColor;
-                } else if (tab === 'content') {
-                    newSettings.captionBold = DEFAULT_SETTINGS.captionBold;
-                    newSettings.captionSize = DEFAULT_SETTINGS.captionSize;
-                    newSettings.captionSpacing = DEFAULT_SETTINGS.captionSpacing;
-                    newSettings.showCameraModel = DEFAULT_SETTINGS.showCameraModel;
-                    newSettings.showSettings = DEFAULT_SETTINGS.showSettings;
-                    newSettings.showDate = DEFAULT_SETTINGS.showDate;
-                }
-                setSettings(newSettings);
+            // ── Settings reset (per-tab) ──────────────────────────────────
+            const resetTab = (tab) => {
+                const D = DEFAULT_SETTINGS;
+                setSettings(prev => {
+                    if (tab === 'layout')  return { ...prev, borderWidthPercent:D.borderWidthPercent, bottomPaddingPercent:D.bottomPaddingPercent, shadowEnabled:D.shadowEnabled, infoOffsetY:D.infoOffsetY };
+                    if (tab === 'color')   return { ...prev, backgroundColor:D.backgroundColor, textColor:D.textColor };
+                    if (tab === 'content') return { ...prev, captionBold:D.captionBold, captionSize:D.captionSize, captionSpacing:D.captionSpacing, showCameraModel:D.showCameraModel, showLens:D.showLens, showSettings:D.showSettings, showDate:D.showDate };
+                    return prev;
+                });
             };
 
+            // useMemo: avoid filter scan on every render
+            const doneCount = useMemo(() => images.filter(i => i.status === 'done').length, [images]);
+
+            // ── Render ────────────────────────────────────────────────────
             return (
-                <div className="flex flex-col h-full">
-                    <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm z-30 shrink-0">
-                        <div className="flex items-center gap-2">
-                            <Icons.Camera className="w-6 h-6 text-blue-600" />
-                            <h1 className="text-lg font-bold">Bluer Exif Frame</h1>
+                <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'var(--bg-base)', color:'var(--text-primary)' }}>
+
+                    {/* Header */}
+                    <header style={{ background:'var(--bg-card)', borderBottom:'1px solid var(--border)', padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                            <span style={{ color:'var(--accent)' }}>{IC.Camera}</span>
+                            <h1 style={{ fontSize:18, fontWeight:700, margin:0 }}>Bluer Exif Frame</h1>
                         </div>
-                        <label className={`bg-blue-600 text-white p-2 rounded-full flex items-center justify-center shadow-sm transition-all ${libsLoaded ? 'cursor-pointer active:bg-blue-700' : 'opacity-50'}`}>
-                            {libsLoaded ? <Icons.Upload className="w-5 h-5" /> : <Icons.Loader2 className="w-5 h-5" />}
-                            <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} disabled={!libsLoaded} />
+                        <label style={{ background:'var(--accent)', padding:8, borderRadius:'50%', cursor: libsLoaded ? 'pointer' : 'default', opacity: libsLoaded ? 1 : 0.4, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                            <span style={{ color:'#fff' }}>{libsLoaded ? IC.Upload : IC.Spin}</span>
+                            <input type="file" multiple accept="image/*" style={{ display:'none' }} onChange={handleFileUpload} disabled={!libsLoaded} />
                         </label>
                     </header>
 
-                    <main className="flex-1 overflow-y-auto p-4 pb-32">
+                    {/* Main */}
+                    <main style={{ flex:1, overflowY:'auto', padding:16, paddingBottom:88 }}>
                         {images.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400 border-2 border-dashed border-gray-300 rounded-2xl bg-white/50" onClick={() => libsLoaded && document.querySelector('input[type=file]')?.click()}>
-                                <Icons.ImageIcon className="w-12 h-12 mb-3 text-gray-300" /><p className="font-medium">{libsLoaded ? "Chạm để thêm ảnh" : "Đang tải thư viện..."}</p>
+                            <div onClick={() => libsLoaded && document.querySelector('input[type=file]')?.click()}
+                                style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', border:'2px dashed var(--border)', background:'var(--bg-card)', borderRadius:18, cursor: libsLoaded ? 'pointer' : 'default' }}>
+                                <span style={{ color:'var(--text-muted)', marginBottom:12 }}>{IC.ImgOff}</span>
+                                <p style={{ color:'var(--text-secondary)', fontWeight:500, margin:0 }}>
+                                    {libsLoaded ? 'Chạm để thêm ảnh' : 'Đang tải thư viện...'}
+                                </p>
                             </div>
                         ) : (
-                            <div className="flex flex-col gap-6">
-                                {images.map((img) => (
-                                    <div key={img.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative group">
-                                        <div className="relative bg-gray-100 flex items-center justify-center min-h-[200px]">
-                                            {img.status === 'processing' && <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center"><Icons.Loader2 className="w-8 h-8 text-blue-600" /></div>}
-                                            <img src={img.finalUrl || img.previewUrl} className={`w-full h-auto object-contain ${!img.finalUrl ? 'opacity-50' : ''}`} />
-                                        </div>
-                                        <div className="p-3">
-                                            <div className="flex justify-between items-center mb-3">
-                                                <div className="flex-1 overflow-hidden mr-2">
-                                                    <p className="text-xs font-bold truncate text-gray-700">{img.file.name}</p>
-                                                    {img.status === 'done' && !img.exif && !img.manualExif && <button onClick={() => openManualEdit(img)} className="flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded mt-1 border border-blue-100 font-bold"><Icons.Edit className="w-3 h-3" /> Nhập thông tin</button>}
-                                                    {img.status === 'done' && (img.exif || img.manualExif) && <button onClick={() => openManualEdit(img)} className="text-xs text-gray-400 flex items-center gap-1 mt-1 hover:text-blue-600"><Icons.Edit className="w-3 h-3" /> Sửa thông số</button>}
+                            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+                                {images.map(img => (
+                                    <div key={img.id} className="img-card">
+                                        {/* Preview area */}
+                                        <div style={{ position:'relative', background:'#0d0d0d', minHeight:180, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                            {img.status === 'processing' && (
+                                                <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1 }}>
+                                                    <span style={{ color:'var(--accent)' }}>{IC.Spin}</span>
                                                 </div>
-                                                <button onClick={() => setImages(p => p.filter(i => i.id !== img.id))} className="text-gray-400 p-2 -mr-2 active:text-red-500"><Icons.Trash2 className="w-5 h-5" /></button>
+                                            )}
+                                            <img src={img.finalUrl || img.previewUrl} style={{ width:'100%', height:'auto', objectFit:'contain', opacity: img.finalUrl ? 1 : 0.3 }} />
+                                        </div>
+                                        {/* Card footer */}
+                                        <div style={{ padding:12 }}>
+                                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                                                <div style={{ flex:1, overflow:'hidden', marginRight:8 }}>
+                                                    <p style={{ fontSize:11, fontWeight:700, color:'var(--text-secondary)', margin:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{img.file.name}</p>
+                                                    {img.status === 'done' && !img.exif && !img.manualExif && (
+                                                        <button onClick={() => openEdit(img)} style={{ display:'flex', alignItems:'center', gap:4, fontSize:10, fontWeight:700, background:'var(--accent-dim)', color:'var(--accent)', border:'1px solid rgba(59,130,246,0.3)', borderRadius:6, padding:'3px 8px', marginTop:4, cursor:'pointer' }}>
+                                                            {IC.Edit} Nhập thông tin
+                                                        </button>
+                                                    )}
+                                                    {img.status === 'done' && (img.exif || img.manualExif) && (
+                                                        <button onClick={() => openEdit(img)} style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'var(--text-muted)', background:'none', border:'none', marginTop:4, cursor:'pointer', padding:0 }}>
+                                                            {IC.Edit} Sửa thông số
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <button onClick={() => setImages(p => p.filter(i => i.id !== img.id))} style={{ color:'var(--text-muted)', background:'none', border:'none', padding:8, cursor:'pointer' }}>
+                                                    {IC.Trash}
+                                                </button>
                                             </div>
-                                            <button onClick={() => handleShareOrSaveSingle(img)} disabled={!img.finalUrl} className="w-full bg-white border border-gray-200 text-gray-900 hover:bg-gray-50 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"><Icons.Share className="w-4 h-4" /> Lưu / Chia sẻ</button>
+                                            <button onClick={() => shareSingle(img)} disabled={!img.finalUrl}
+                                                style={{ width:'100%', padding:'12px 0', borderRadius:10, fontSize:13, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:8, background:'var(--bg-elevated)', border:'1px solid var(--border)', color: img.finalUrl ? 'var(--text-primary)' : 'var(--text-muted)', cursor: img.finalUrl ? 'pointer' : 'default', transition:'transform 0.1s' }}
+                                                onMouseDown={e => e.currentTarget.style.transform='scale(0.97)'}
+                                                onMouseUp={e => e.currentTarget.style.transform='scale(1)'}
+                                                onTouchStart={e => e.currentTarget.style.transform='scale(0.97)'}
+                                                onTouchEnd={e => e.currentTarget.style.transform='scale(1)'}>
+                                                <span style={{ color:'var(--accent)' }}>{IC.Share}</span> Lưu / Chia sẻ
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -607,82 +863,208 @@
                         )}
                     </main>
 
-                    {editingExifId && (
-                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setEditingExifId(null)}>
-                            <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                                <div className="p-4 border-b flex justify-between items-center"><h3 className="font-bold text-lg">Nhập thông số</h3><button onClick={() => setEditingExifId(null)} className="p-2 bg-gray-100 rounded-full"><Icons.X className="w-4 h-4" /></button></div>
-                                <div className="p-4 overflow-y-auto modal-scroll space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="col-span-2"><label className="text-xs font-bold text-gray-500 mb-1 block">Hãng</label><input type="text" value={manualForm.make} onChange={(e) => setManualForm({...manualForm, make: e.target.value})} className="w-full p-2 border rounded-lg text-sm" placeholder="Sony..." /></div>
-                                        <div className="col-span-2"><label className="text-xs font-bold text-gray-500 mb-1 block">Tên máy</label><input type="text" value={manualForm.model} onChange={(e) => setManualForm({...manualForm, model: e.target.value})} className="w-full p-2 border rounded-lg text-sm" placeholder="A7III..." /></div>
-                                        <div><label className="text-xs font-bold text-gray-500 mb-1">Tiêu cự</label><input type="text" value={manualForm.focalLength} onChange={(e) => setManualForm({...manualForm, focalLength: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
-                                        <div><label className="text-xs font-bold text-gray-500 mb-1">Khẩu độ</label><input type="text" value={manualForm.aperture} onChange={(e) => setManualForm({...manualForm, aperture: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
-                                        <div><label className="text-xs font-bold text-gray-500 mb-1">Tốc độ</label><input type="text" value={manualForm.shutter} onChange={(e) => setManualForm({...manualForm, shutter: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
-                                        <div><label className="text-xs font-bold text-gray-500 mb-1">ISO</label><input type="text" value={manualForm.iso} onChange={(e) => setManualForm({...manualForm, iso: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
-                                        <div className="col-span-2"><label className="text-xs font-bold text-gray-500 mb-1">Ngày</label><input type="date" value={manualForm.date} onChange={(e) => setManualForm({...manualForm, date: e.target.value})} className="w-full p-2 border rounded-lg text-sm" /></div>
+                    {/* Manual EXIF modal */}
+                    {editingId && (
+                        <div onClick={() => setEditingId(null)}
+                            style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', display:'flex', alignItems:'center', justifyContent:'center', padding:16, zIndex:60 }}>
+                            <div onClick={e => e.stopPropagation()} className="modal-anim"
+                                style={{ width:'100%', maxWidth:400, background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:18, display:'flex', flexDirection:'column', maxHeight:'90vh' }}>
+                                <div style={{ padding:'16px 16px 12px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                    <h3 style={{ margin:0, fontWeight:700, fontSize:17 }}>Nhập thông số</h3>
+                                    <button className="btn-icon" onClick={() => setEditingId(null)}>{IC.X}</button>
+                                </div>
+                                <div className="modal-scroll" style={{ padding:16, overflowY:'auto', display:'flex', flexDirection:'column', gap:12 }}>
+                                    {[
+                                        ['make',        'Hãng',            'Sony, Canon...'],
+                                        ['model',       'Tên máy',         'A7 IV...'],
+                                        ['lens',        'Ống kính (Lens)', 'FE 24-70mm F2.8 GM...'],
+                                        ['focalLength', 'Tiêu cự (mm)',    '50'],
+                                        ['aperture',    'Khẩu độ',         '2.8'],
+                                        ['shutter',     'Tốc độ',          '1/250'],
+                                        ['iso',         'ISO',             '400'],
+                                    ].map(([key, label, ph]) => (
+                                        <div key={key}>
+                                            <span className="sec-label">{label}</span>
+                                            <input type="text" value={manualForm[key]} placeholder={ph}
+                                                onChange={e => setManualForm(f => ({ ...f, [key]: e.target.value }))} />
+                                        </div>
+                                    ))}
+                                    <div>
+                                        <span className="sec-label">Ngày</span>
+                                        <input type="date" value={manualForm.date}
+                                            onChange={e => setManualForm(f => ({ ...f, date: e.target.value }))} />
                                     </div>
                                 </div>
-                                <div className="p-4 border-t"><button onClick={saveManualExif} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow">Lưu</button></div>
+                                <div style={{ padding:16, borderTop:'1px solid var(--border)' }}>
+                                    <button onClick={saveEdit} style={{ width:'100%', padding:'13px 0', background:'var(--accent)', color:'#fff', borderRadius:12, fontWeight:700, fontSize:15, border:'none', cursor:'pointer' }}>
+                                        Lưu
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 pb-safe z-40 flex justify-around items-center shadow-lg">
-                        <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 ${isSettingsOpen ? 'text-blue-600' : 'text-gray-500'}`}><Icons.Settings className="w-6 h-6" /><span className="text-[10px] font-medium">Cấu hình</span></button>
-                        {images.length > 0 && <button onClick={reProcessAll} className="flex flex-col items-center gap-1 p-2 text-gray-500 active:text-blue-600 flex-1"><Icons.Check className="w-5 h-5" /><span className="text-[10px] font-medium">Làm mới</span></button>}
-                        {images.length > 1 && <button onClick={handleSaveAll} className="flex flex-col items-center gap-1 p-2 text-blue-600 active:scale-95 transition-transform flex-1"><Icons.FolderDown className="w-6 h-6" /><span className="text-[10px] font-bold">Lưu tất cả</span></button>}
+                    {/* Bottom nav */}
+                    <div className="bottom-nav" style={{ position:'fixed', bottom:0, left:0, right:0, display:'flex', justifyContent:'space-around', alignItems:'center', padding:'8px 0', paddingBottom:'calc(8px + env(safe-area-inset-bottom))', zIndex:40 }}>
+                        <button onClick={() => setSettingsOpen(v => !v)}
+                            style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, padding:'4px 20px', color: settingsOpen ? 'var(--accent)' : 'var(--text-secondary)', background:'none', border:'none', cursor:'pointer' }}>
+                            {IC.Settings}
+                            <span style={{ fontSize:10, fontWeight:500 }}>Cấu hình</span>
+                        </button>
+                        {images.length > 0 && (
+                            <button onClick={reProcessAll}
+                                style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, padding:'4px 20px', color:'var(--text-secondary)', background:'none', border:'none', cursor:'pointer' }}>
+                                {IC.Check}
+                                <span style={{ fontSize:10, fontWeight:500 }}>Làm mới</span>
+                            </button>
+                        )}
+                        {doneCount > 1 && (
+                            <button onClick={saveAll}
+                                style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, padding:'4px 20px', color:'var(--accent)', background:'none', border:'none', cursor:'pointer' }}>
+                                {IC.DlAll}
+                                <span style={{ fontSize:10, fontWeight:700 }}>Lưu tất cả</span>
+                            </button>
+                        )}
                     </div>
 
-                    {isSettingsOpen && (
-                        <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center bg-black/50 backdrop-blur-sm" onClick={() => setIsSettingsOpen(false)}>
-                            <div className="relative bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
-                                <div className="flex justify-between items-center p-4 border-b">
-                                    <h3 className="font-bold text-lg">Tùy chỉnh</h3>
-                                    <div className="flex items-center gap-2">
-                                        <button onClick={() => resetSettings(activeTab)} title="Đặt lại mặc định" className="p-2 text-gray-400 hover:text-blue-600 rounded-full active:bg-gray-100"><Icons.RefreshCcw className="w-4 h-4" /></button>
-                                        <button onClick={() => setIsSettingsOpen(false)} className="p-2 bg-gray-100 rounded-full"><Icons.X className="w-5 h-5" /></button>
+                    {/* Settings sheet */}
+                    {settingsOpen && (
+                        <div onClick={() => setSettingsOpen(false)}
+                            style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:50 }}>
+                            <div onClick={e => e.stopPropagation()} className="modal-anim"
+                                style={{ width:'100%', maxWidth:480, background:'var(--bg-card)', border:'1px solid var(--border)', borderRadius:'18px 18px 0 0', display:'flex', flexDirection:'column', maxHeight:'85vh' }}>
+
+                                {/* Sheet header */}
+                                <div style={{ padding:'16px 16px 12px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                    <h3 style={{ margin:0, fontWeight:700, fontSize:17 }}>Tùy chỉnh</h3>
+                                    <div style={{ display:'flex', gap:8 }}>
+                                        <button className="btn-icon" title="Đặt lại tab này" onClick={() => resetTab(activeTab)}>{IC.Reset}</button>
+                                        <button className="btn-icon" onClick={() => setSettingsOpen(false)}>{IC.X}</button>
                                     </div>
                                 </div>
-                                <div className="flex p-2 gap-2 bg-gray-50 mx-4 mt-2 rounded-lg shrink-0">
-                                    {['layout', 'color', 'content'].map(tab => (
-                                        <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 rounded-md text-xs font-bold uppercase ${activeTab === tab ? 'bg-white shadow text-blue-600' : 'text-gray-400'}`}>{tab === 'layout' ? 'Bố cục' : tab === 'color' ? 'Màu sắc' : 'Nội dung'}</button>
+
+                                {/* Tabs */}
+                                <div style={{ display:'flex', gap:6, margin:'12px 16px 0', background:'var(--bg-base)', padding:5, borderRadius:12 }}>
+                                    {[['layout','Bố cục'],['color','Màu sắc'],['content','Nội dung']].map(([id, label]) => (
+                                        <button key={id} onClick={() => setActiveTab(id)}
+                                            style={{ flex:1, padding:'8px 0', borderRadius:8, fontSize:11, fontWeight:700, textTransform:'uppercase', border: activeTab===id ? '1px solid var(--border)' : '1px solid transparent', background: activeTab===id ? 'var(--bg-elevated)' : 'transparent', color: activeTab===id ? 'var(--accent)' : 'var(--text-muted)', cursor:'pointer' }}>
+                                            {label}
+                                        </button>
                                     ))}
                                 </div>
-                                <div className="p-5 overflow-y-auto">
-                                    {activeTab === 'layout' && <div className="space-y-6">
-                                        <div><div className="flex justify-between mb-2"><span className="text-sm font-medium">Độ dày viền</span><span className="text-xs bg-gray-100 px-2 py-1 rounded min-w-[3rem] text-center">{settings.borderWidthPercent}%</span></div><input type="range" min="0" max="30" value={settings.borderWidthPercent} onChange={(e) => setSettings({...settings, borderWidthPercent: Number(e.target.value)})} /></div>
-                                        <div><div className="flex justify-between mb-2"><span className="text-sm font-medium">Khoảng dưới (Min)</span><span className="text-xs bg-gray-100 px-2 py-1 rounded min-w-[3rem] text-center">{settings.bottomPaddingPercent}%</span></div><input type="range" min="5" max="50" value={settings.bottomPaddingPercent} onChange={(e) => setSettings({...settings, bottomPaddingPercent: Number(e.target.value)})} /></div>
+
+                                {/* Tab content */}
+                                <div className="modal-scroll" style={{ padding:'20px 16px', overflowY:'auto', display:'flex', flexDirection:'column', gap:24 }}>
+
+                                    {activeTab === 'layout' && <>
+                                        <SliderRow label="Độ dày viền"       value={settings.borderWidthPercent}  min={0}  max={30} onChange={v => setSettings(s => ({...s, borderWidthPercent:v}))} />
+                                        <SliderRow label="Khoảng dưới (Min)" value={settings.bottomPaddingPercent} min={5} max={50} onChange={v => setSettings(s => ({...s, bottomPaddingPercent:v}))} />
+                                        <InfoOffsetControl value={settings.infoOffsetY} onChange={v => setSettings(s => ({...s, infoOffsetY:v}))} />
+                                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:12, borderTop:'1px solid var(--border)' }}>
+                                            <span style={{ fontSize:14, fontWeight:500 }}>Đổ bóng</span>
+                                            <input type="checkbox" style={{ width:18, height:18 }} checked={settings.shadowEnabled} onChange={e => setSettings(s => ({...s, shadowEnabled:e.target.checked}))} />
+                                        </div>
+                                    </>}
+
+                                    {activeTab === 'color' && <>
+                                        {[['backgroundColor','Màu nền'],['textColor','Màu chữ']].map(([key, label]) => (
+                                            <div key={key} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'var(--bg-elevated)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px' }}>
+                                                <span style={{ fontSize:14, fontWeight:500 }}>{label}</span>
+                                                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                                    <span style={{ fontSize:11, color:'var(--text-secondary)', fontFamily:'monospace' }}>{settings[key]}</span>
+                                                    <input type="color" value={settings[key]} onChange={e => setSettings(s => ({...s, [key]:e.target.value}))} />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </>}
+
+                                    {activeTab === 'content' && <>
+                                        {/* Caption block */}
+                                        <div className="inner-card" style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                                <span className="sec-label" style={{ marginBottom:0 }}>Tiêu đề (Caption)</span>
+                                                <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, fontWeight:700, color:'var(--text-secondary)', cursor:'pointer' }}>
+                                                    <input type="checkbox" checked={settings.captionBold} onChange={e => setSettings(s => ({...s, captionBold:e.target.checked}))} /> Đậm
+                                                </label>
+                                            </div>
+                                            <input type="text" value={settings.captionText} placeholder="VD: A Sunday Morning"
+                                                onChange={e => setSettings(s => ({...s, captionText:e.target.value}))} />
+                                            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+                                                <div>
+                                                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                                                        <span style={{ fontSize:10, color:'var(--text-muted)' }}>Kích thước</span>
+                                                        <span style={{ fontSize:10, color:'var(--accent)', background:'var(--bg-input)', borderRadius:4, padding:'1px 5px' }}>{settings.captionSize.toFixed(2)}x</span>
+                                                    </div>
+                                                    <input type="range" min="0.5" max="1.5" step="0.05" value={settings.captionSize}
+                                                        onChange={e => setSettings(s => ({...s, captionSize:Number(e.target.value)}))} />
+                                                </div>
+                                                <div>
+                                                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                                                        <span style={{ fontSize:10, color:'var(--text-muted)' }}>Giãn chữ</span>
+                                                        <span style={{ fontSize:10, color:'var(--accent)', background:'var(--bg-input)', borderRadius:4, padding:'1px 5px' }}>{settings.captionSpacing}%</span>
+                                                    </div>
+                                                    <input type="range" min="0" max="50" step="1" value={settings.captionSpacing}
+                                                        onChange={e => setSettings(s => ({...s, captionSpacing:Number(e.target.value)}))} />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Info toggles */}
                                         <div>
-                                            <div className="flex justify-between mb-2 items-center">
-                                                <span className="text-sm font-medium">Vị trí dòng info</span>
-                                                <span className={`text-xs px-2 py-1 rounded min-w-[3rem] text-center ${settings.infoOffsetY === 0 ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-blue-700 font-bold'}`}>{settings.infoOffsetY > 0 ? `+${settings.infoOffsetY}` : settings.infoOffsetY} px</span>
-                                            </div>
-                                            <div className="flex items-center justify-center gap-4 bg-gray-50 p-2 rounded-lg border">
-                                                <button onClick={() => setSettings({...settings, infoOffsetY: settings.infoOffsetY - 1})} className="p-3 bg-white rounded-lg shadow-sm border active:bg-gray-100"><Icons.ArrowUp className="w-5 h-5" /></button>
-                                                <span className="text-sm font-medium text-gray-500">Dịch chuyển</span>
-                                                <button onClick={() => setSettings({...settings, infoOffsetY: settings.infoOffsetY + 1})} className="p-3 bg-white rounded-lg shadow-sm border active:bg-gray-100"><Icons.ArrowDown className="w-5 h-5" /></button>
-                                            </div>
-                                        </div>
-                                        <div className="flex justify-between pt-2 border-t"><span className="text-sm font-medium">Đổ bóng</span><input type="checkbox" checked={settings.shadowEnabled} onChange={(e) => setSettings({...settings, shadowEnabled: e.target.checked})} className="w-5 h-5 accent-blue-600" /></div>
-                                    </div>}
-                                    {activeTab === 'color' && <div className="space-y-4">
-                                        <div className="flex justify-between p-3 border rounded-xl"><span className="text-sm font-medium">Màu nền</span><div className="flex items-center gap-2"><span className="text-xs text-gray-500 uppercase">{settings.backgroundColor}</span><input type="color" value={settings.backgroundColor} onChange={(e) => setSettings({...settings, backgroundColor: e.target.value})} /></div></div>
-                                        <div className="flex justify-between p-3 border rounded-xl"><span className="text-sm font-medium">Màu chữ</span><div className="flex items-center gap-2"><span className="text-xs text-gray-500 uppercase">{settings.textColor}</span><input type="color" value={settings.textColor} onChange={(e) => setSettings({...settings, textColor: e.target.value})} /></div></div>
-                                    </div>}
-                                    {activeTab === 'content' && <div className="space-y-4">
-                                        <div className="bg-gray-50 p-3 rounded-xl border space-y-3">
-                                            <div className="flex justify-between"><label className="text-xs font-bold uppercase text-gray-500">Tiêu đề (Caption)</label><label className="flex gap-2 text-xs font-bold text-gray-600"><input type="checkbox" checked={settings.captionBold} onChange={(e) => setSettings({...settings, captionBold: e.target.checked})} /> Đậm</label></div>
-                                            <input type="text" value={settings.captionText} placeholder="VD: A Sunday Morning" onChange={(e) => setSettings({...settings, captionText: e.target.value})} className="w-full p-3 border rounded-lg text-sm bg-white" />
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div><div className="flex justify-between mb-1"><label className="text-[10px] text-gray-400">Kích thước</label><span className="text-[10px] bg-white px-1 rounded border">{settings.captionSize.toFixed(2)}x</span></div><input type="range" min="0.5" max="1.5" step="0.05" value={settings.captionSize} onChange={(e) => setSettings({...settings, captionSize: Number(e.target.value)})} /></div>
-                                                <div><div className="flex justify-between mb-1"><label className="text-[10px] text-gray-400">Giãn chữ</label><span className="text-[10px] bg-white px-1 rounded border">{settings.captionSpacing}%</span></div><input type="range" min="0" max="50" step="1" value={settings.captionSpacing} onChange={(e) => setSettings({...settings, captionSpacing: Number(e.target.value)})} /></div>
+                                            <span className="sec-label">Thông tin hiển thị</span>
+                                            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                                                {[['showCameraModel','Tên Máy'],['showLens','Ống Kính'],['showSettings','Thông Số'],['showDate','Ngày']].map(([key, label]) => (
+                                                    <label key={key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 12px', borderRadius:10, cursor:'pointer', background: settings[key] ? 'var(--accent-dim)' : 'var(--bg-elevated)', border: settings[key] ? '1px solid rgba(59,130,246,0.4)' : '1px solid var(--border)', color: settings[key] ? 'var(--accent)' : 'var(--text-secondary)' }}>
+                                                        <span style={{ fontSize:12, fontWeight:700 }}>{label}</span>
+                                                        <input type="checkbox" checked={settings[key]} style={{ width:15, height:15 }}
+                                                            onChange={e => setSettings(s => ({...s, [key]:e.target.checked}))} />
+                                                    </label>
+                                                ))}
                                             </div>
                                         </div>
-                                        <div className="space-y-2 pt-1"><label className="text-xs font-bold uppercase text-gray-500">Thông tin</label><div className="grid grid-cols-3 gap-2">{['showCameraModel', 'showSettings', 'showDate'].map(key => (<label key={key} className={`flex flex-col items-center justify-center p-2 border rounded-lg text-xs font-medium transition-colors ${settings[key] ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white text-gray-500'}`}>{key==='showCameraModel'?'Tên Máy':key==='showSettings'?'Thông Số':'Ngày'}<input type="checkbox" checked={settings[key]} onChange={(e) => setSettings({...settings, [key]: e.target.checked})} className="hidden" /></label>))}</div></div>
-                                        <div className="border rounded-xl p-3 bg-white"><span className="text-xs font-bold uppercase text-gray-500 block mb-2">Logo <span className="font-normal text-gray-400">(ưu tiên file signature.png)</span></span><div className="flex items-center gap-3">{signatureUrl ? <div className={`relative w-12 h-12 border rounded bg-gray-50 flex items-center justify-center overflow-hidden ${imgError ? 'border-red-300 bg-red-50' : ''}`}>{imgError ? <Icons.AlertCircle className="w-5 h-5 text-red-400" /> : <img src={signatureUrl} className="max-w-full max-h-full object-contain" />}<button onClick={removeSignature} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl shadow-sm z-10"><Icons.X className="w-3 h-3" /></button></div> : <div className="w-12 h-12 border-2 border-dashed rounded bg-gray-50 flex items-center justify-center text-gray-300"><Icons.ImageIcon className="w-5 h-5" /></div>}<div className="flex-1 space-y-2"><label className={`cursor-pointer text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 w-full active:scale-95 transition-all shadow-sm ${signatureUrl && !imgError ? 'bg-gray-400' : 'bg-blue-600'}`}><Icons.ImagePlus className="w-3 h-3" /> {signatureUrl && !imgError ? 'Thay đổi' : 'Tải lên'} <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} /></label>{!signatureUrl && <input type="text" value={settings.watermarkText} placeholder="Hoặc nhập text..." onChange={(e) => setSettings({...settings, watermarkText: e.target.value})} className="w-full p-2 border rounded-lg text-xs" />}</div></div></div>
-                                    </div>}
+
+                                        {/* Logo */}
+                                        <div className="inner-card">
+                                            <span className="sec-label">Logo / Signature</span>
+                                            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                                                <div style={{ width:48, height:48, flexShrink:0, borderRadius:8, border:`1px solid ${sigError ? 'var(--danger)' : 'var(--border)'}`, background:'var(--bg-input)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', position:'relative' }}>
+                                                    {signatureUrl
+                                                        ? sigError
+                                                            ? <span style={{ color:'var(--danger)' }}>{IC.Alert}</span>
+                                                            : <img src={signatureUrl} style={{ maxWidth:'100%', maxHeight:'100%', objectFit:'contain' }} />
+                                                        : <span style={{ color:'var(--text-muted)' }}>{IC.ImgSm}</span>
+                                                    }
+                                                    {signatureUrl && (
+                                                        <button onClick={removeSig} style={{ position:'absolute', top:0, right:0, background:'var(--danger)', color:'#fff', border:'none', padding:'2px 3px', borderBottomLeftRadius:5, cursor:'pointer', lineHeight:1 }}>{IC.X}</button>
+                                                    )}
+                                                </div>
+                                                <div style={{ flex:1, display:'flex', flexDirection:'column', gap:8 }}>
+                                                    <label style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background: signatureUrl && !sigError ? '#333' : 'var(--accent)', color:'#fff', padding:'8px 12px', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                                                        {IC.ImgPlus} {signatureUrl && !sigError ? 'Thay đổi Logo' : 'Tải Logo lên'}
+                                                        <input type="file" accept="image/*" style={{ display:'none' }} onChange={handleSigUpload} />
+                                                    </label>
+                                                    {!signatureUrl && (
+                                                        <input type="text" value={settings.watermarkText} placeholder="Hoặc nhập text watermark..."
+                                                            onChange={e => setSettings(s => ({...s, watermarkText:e.target.value}))}
+                                                            style={{ fontSize:12, padding:'8px 10px' }} />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>}
                                 </div>
-                                <div className="p-4 border-t bg-gray-50 rounded-b-2xl"><button onClick={() => { reProcessAll(); setIsSettingsOpen(false); }} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"><Icons.Check className="w-5 h-5" /> Áp dụng</button></div>
+
+                                {/* Apply */}
+                                <div style={{ padding:16, borderTop:'1px solid var(--border)' }}>
+                                    <button onClick={() => { reProcessAll(); setSettingsOpen(false); }}
+                                        style={{ width:'100%', padding:'15px 0', background:'var(--accent)', color:'#fff', border:'none', borderRadius:12, fontWeight:700, fontSize:15, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}
+                                        onMouseDown={e => e.currentTarget.style.opacity='0.85'}
+                                        onMouseUp={e => e.currentTarget.style.opacity='1'}
+                                        onTouchStart={e => e.currentTarget.style.opacity='0.85'}
+                                        onTouchEnd={e => e.currentTarget.style.opacity='1'}>
+                                        {IC.Check} Áp dụng
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -690,8 +1072,7 @@
             );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
 </body>
 </html>

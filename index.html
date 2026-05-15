@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -38,119 +38,30 @@
             --accent-dim:     rgba(59,130,246,0.15);
             --danger:         #ef4444;
         }
-
         *, *::before, *::after { box-sizing: border-box; }
-
-        html, body {
-            height: 100%;
-            background: var(--bg-base);
-            color: var(--text-primary);
-        }
+        html, body { height: 100%; background: var(--bg-base); color: var(--text-primary); }
         body {
             overscroll-behavior-y: none;
             -webkit-tap-highlight-color: transparent;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            padding-top:    env(safe-area-inset-top);
+            padding-top: env(safe-area-inset-top);
             padding-bottom: env(safe-area-inset-bottom);
             user-select: none;
             display: flex;
             flex-direction: column;
         }
-
-        .modal-scroll::-webkit-scrollbar       { width: 4px; }
-        .modal-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-        .modal-scroll::-webkit-scrollbar-track { background: transparent; }
-
-        input[type=range] {
-            -webkit-appearance: none;
-            background: transparent;
-            width: 100%;
-            height: 24px;
-            cursor: pointer;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 22px; width: 22px;
-            border-radius: 50%;
-            background: var(--accent);
-            margin-top: -9px;
-            box-shadow: 0 0 0 3px rgba(59,130,246,0.2), 0 2px 6px rgba(0,0,0,0.5);
-            transition: transform 0.1s;
-        }
-        input[type=range]:active::-webkit-slider-thumb { transform: scale(1.15); }
-        input[type=range]::-webkit-slider-runnable-track {
-            height: 4px;
-            background: #2e2e2e;
-            border-radius: 2px;
-        }
-
-        input[type=number]::-webkit-inner-spin-button,
-        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-
-        input[type=text], input[type=number], input[type=date] {
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            border-radius: 10px;
-            padding: 10px 12px;
-            font-size: 14px;
-            width: 100%;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        input[type=text]:focus,
-        input[type=number]:focus,
-        input[type=date]:focus { border-color: var(--accent); }
-        input[type=text]::placeholder,
-        input[type=number]::placeholder { color: var(--text-muted); }
-
-        input[type=color] {
-            -webkit-appearance: none;
-            width: 36px; height: 36px;
-            border: none; border-radius: 8px;
-            cursor: pointer; padding: 0; background: none;
-        }
-        input[type=color]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 8px; }
-        input[type=color]::-webkit-color-swatch         { border: none; border-radius: 8px; }
-
-        input[type=checkbox] { accent-color: var(--accent); }
-
-        .btn-icon {
-            background: var(--bg-elevated); border: 1px solid var(--border);
-            border-radius: 10px; padding: 10px;
-            color: var(--text-primary); cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: background 0.15s;
-        }
-        .btn-icon:active { background: var(--border); }
-
-        .hold-btn {
-            background: var(--bg-elevated); border: 1px solid var(--border);
-            border-radius: 10px; padding: 12px 16px;
-            color: var(--text-primary); cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: background 0.1s, border-color 0.1s;
-            -webkit-user-select: none; user-select: none;
-        }
+        input[type=range] { -webkit-appearance: none; background: transparent; width: 100%; height: 24px; cursor: pointer; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 22px; width: 22px; border-radius: 50%; background: var(--accent); margin-top: -9px; box-shadow: 0 0 0 3px rgba(59,130,246,0.2), 0 2px 6px rgba(0,0,0,0.5); }
+        input[type=range]::-webkit-slider-runnable-track { height: 4px; background: #2e2e2e; border-radius: 2px; }
+        input[type=text], input[type=number], input[type=date] { background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); border-radius: 10px; padding: 10px 12px; font-size: 14px; width: 100%; outline: none; }
+        .btn-icon { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 10px; color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .hold-btn { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; user-select: none; }
         .hold-btn:active { background: var(--accent); border-color: var(--accent); color: #fff; }
-
-        .pixel-display {
-            background: var(--bg-input); border: 1px solid var(--border);
-            border-radius: 8px; min-width: 72px; text-align: center;
-            color: var(--accent); font-weight: 700; font-size: 13px;
-            padding: 6px 8px; cursor: text; transition: border-color 0.2s;
-        }
-        .pixel-display:hover { border-color: var(--accent); }
-
-        .img-card   { background: #111; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+        .img-card { background: #111; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
         .inner-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
-        .sec-label  { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; display: block; }
+        .sec-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; display: block; }
         .bottom-nav { background: rgba(10,10,10,0.95); backdrop-filter: blur(12px); border-top: 1px solid var(--border); }
-
-        @keyframes slideUp {
-            from { transform: translateY(24px); opacity: 0; }
-            to   { transform: translateY(0);    opacity: 1; }
-        }
+        @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .modal-anim { animation: slideUp 0.22s cubic-bezier(0.16,1,0.3,1) both; }
     </style>
 </head>
@@ -165,8 +76,139 @@
         const CONCURRENCY   = 3;
 
         const CAMERA_DB_ENTRIES = Object.entries({
-            'rx100':2.7,'zv-1':2.7,'rx10':2.7,'rx1':1.0,
-            'g7 x':2.7,'g5 x':2.7,'g9 x':2.7,
-            's100':4.6,'s110':4.6,'s120':4.6,'ixus':5.6,
-            'gr ii':1.5,'gr iii':1.5,'gr digital':4.6,'cx':5.6,'caplio':5.6,
-            'x100':1.5,'x-':1.5,'gfx':0.79,'x1
+            'rx100':2.7,'zv-1':2.7,'rx10':2.7,'rx1':1.0,'g7 x':2.7,'g5 x':2.7,'g9 x':2.7,
+            's100':4.6,'s110':4.6,'s120':4.6,'ixus':5.6,'gr ii':1.5,'gr iii':1.5,
+            'gfx':0.79,'x100':1.5,'x-':1.5,'x10':3.9,'x20':3.9,'x30':3.9,
+            'lx100':2.2,'lx10':2.7,'lx15':2.7,'tz':5.6,'zs':5.6,'tg-':5.6,'xz-':4.7,
+            'coolpix a':1.5,'p900':5.6,'p1000':5.6,'1 j':2.7,'1 v':2.7,
+        });
+
+        const DEFAULT_SETTINGS = {
+            borderWidthPercent:   15,
+            bottomPaddingPercent: 20,
+            backgroundColor: '#ffffff',
+            textColor:       '#222222',
+            showCameraModel: true,
+            showLens:        true,
+            showSettings:    true,
+            showDate:        false,
+            shadowEnabled:   true,
+            fontFamily:      '"Noto Serif Ethiopic", serif',
+            watermarkText:   '',
+            captionText:     '',
+            captionBold:     true,
+            captionSize:     0.75,
+            captionSpacing:  0,
+            infoOffsetY:     0,
+        };
+
+        const cleanStr = (raw) => raw ? String(raw).replace(/\0/g, '').trim() : '';
+
+        const formatExposureTime = (time) => {
+            if (!time) return '';
+            if (typeof time === 'string' && time.includes('/')) return time;
+            if (time >= 1) return `${time}s`;
+            const den = Math.round(1 / time);
+            return `1/${den}s`;
+        };
+
+        const formatFNumber = (f) => f ? (typeof f === 'number' ? `f/${Math.round(f * 10) / 10}` : `f/${f}`) : '';
+        const formatISO = (iso) => iso ? (String(iso).toLowerCase().startsWith('iso') ? iso : `ISO ${iso}`) : '';
+
+        const readExifFromFile = async (file) => {
+            try {
+                const tags = await window.exifr.parse(file, {
+                    tiff: true, exif: true, xmp: true, makerNote: true, ifd0: true,
+                });
+                if (!tags) return null;
+
+                const lensRaw = tags.LensModel || tags.Lens || tags.LensID || '';
+                let lensName = cleanStr(String(lensRaw));
+
+                const dateRaw = tags.DateTimeOriginal || tags.CreateDate;
+                let dateStr = '';
+                if (dateRaw instanceof Date) {
+                    const pad = n => String(n).padStart(2, '0');
+                    dateStr = `${dateRaw.getFullYear()}:${pad(dateRaw.getMonth()+1)}:${pad(dateRaw.getDate())}`;
+                }
+
+                return {
+                    Make: cleanStr(tags.Make),
+                    Model: cleanStr(tags.Model),
+                    LensModel: lensName,
+                    FNumber: tags.FNumber,
+                    ExposureTime: tags.ExposureTime,
+                    ISOSpeedRatings: tags.ISO || tags.ISOSpeedRatings,
+                    FocalLength: tags.FocalLength,
+                    FocalLengthIn35mmFilm: tags.FocalLengthIn35mmFormat,
+                    DateTimeOriginal: dateStr,
+                };
+            } catch(err) {
+                console.warn('Exif error:', err);
+                return null;
+            }
+        };
+
+        function App() {
+            const [images, setImages] = useState([]);
+            const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+            const [settingsOpen, setSettingsOpen] = useState(false);
+            const [libsLoaded, setLibsLoaded] = useState(false);
+            const logoRef = useRef(null);
+
+            useEffect(() => {
+                const check = setInterval(() => {
+                    if (window.exifr) { setLibsLoaded(true); clearInterval(check); }
+                }, 100);
+                return () => clearInterval(check);
+            }, []);
+
+            const handleFileUpload = async (e) => {
+                const files = Array.from(e.target.files);
+                const newItems = await Promise.all(files.map(async file => {
+                    const exif = await readExifFromFile(file);
+                    return {
+                        id: Math.random().toString(36).slice(2, 9),
+                        file,
+                        previewUrl: URL.createObjectURL(file),
+                        exif,
+                        status: 'done'
+                    };
+                }));
+                setImages(prev => [...prev, ...newItems]);
+            };
+
+            return (
+                <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+                    <header style={{ background:'var(--bg-card)', padding:'16px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <h1 style={{ fontSize:18, fontWeight:700 }}>Bluer Frame</h1>
+                        <label style={{ background:'var(--accent)', color:'#fff', padding:'8px 16px', borderRadius:20, cursor:'pointer' }}>
+                            Thêm ảnh
+                            <input type="file" multiple accept="image/*" style={{ display:'none' }} onChange={handleFileUpload} />
+                        </label>
+                    </header>
+
+                    <main style={{ flex:1, overflowY:'auto', padding:16 }}>
+                        {images.length === 0 ? (
+                            <div style={{ textAlign:'center', marginTop:100, color:'var(--text-muted)' }}>Chưa có ảnh nào được chọn.</div>
+                        ) : (
+                            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+                                {images.map(img => (
+                                    <div key={img.id} className="img-card" style={{ padding:12 }}>
+                                        <img src={img.previewUrl} style={{ width:'100%', borderRadius:8 }} />
+                                        <div style={{ marginTop:8, fontSize:12, color:'var(--text-secondary)' }}>
+                                            {img.exif ? `${img.exif.Make} ${img.exif.Model}` : 'Không tìm thấy thông tin EXIF'}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

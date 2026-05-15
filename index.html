@@ -22,7 +22,8 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <!-- exifr: modern full EXIF parser — reads MakerNote, XMP, lens tags across all brands -->
+    <script src="https://cdn.jsdelivr.net/npm/exifr@7/dist/full.umd.cjs"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <style>
@@ -256,22 +257,96 @@
             return `${Math.round(fl)}mm`;
         };
 
-        // Parse EXIF tags from an ArrayBuffer
-        const readExifFromBuffer = (buffer) => {
-            if (!window.EXIF) return null;
-            const tags = window.EXIF.readFromBinaryFile(buffer);
-            if (!tags || (!tags.Make && !tags.Model && !tags.FocalLength)) return null;
-            return {
-                Make:                  tags.Make,
-                Model:                 tags.Model,
-                LensModel:             tags.LensModel || tags.Lens || '',
-                FNumber:               tags.FNumber,
-                ExposureTime:          tags.ExposureTime,
-                ISOSpeedRatings:       tags.ISOSpeedRatings,
-                FocalLength:           tags.FocalLength,
-                FocalLengthIn35mmFilm: tags.FocalLengthIn35mmFilm,
-                DateTimeOriginal:      tags.DateTimeOriginal,
-            };
+        // ── EXIF reading via exifr ───────────────────────────────────────────
+        //
+        //  exifr reads standard EXIF IFD, MakerNote (Canon/Nikon/Fuji/Olympus/
+        //  Panasonic), and XMP — covering lens info for virtually every brand.
+        //
+        //  Lens tag priority:
+        //    LensModel        → Sony, Canon (EOS R/newer EF), Nikon Z, Olympus,
+        //                       Fujifilm (MakerNote), Leica, most phones
+        //    Lens             → Nikon MakerNote legacy DSLR, some Canon
+        //    LensType         → Panasonic MakerNote
+        //    LensID           → Nikon numeric ID fallback
+        //    LensInfo /
+        //    LensSpecification→ EXIF array [minFL, maxFL, minF, maxF]
+        //
+        const readExifFromFile = async (file) => {
+            try {
+                const tags = await window.exifr.parse(file, {
+                    tiff:      true,
+                    exif:      true,
+                    xmp:       true,
+                    iptc:      false,
+                    jfif:      false,
+                    makerNote: true,
+                    ifd0:      true,
+                    ifd1:      false,
+                    pick: [
+                        'Make','Model',
+                        'LensModel','Lens','LensType','LensID',
+                        'LensInfo','LensSpecification',
+                        'FNumber','ApertureValue',
+                        'ExposureTime','ShutterSpeedValue',
+                        'ISO','ISOSpeedRatings',
+                        'FocalLength','FocalLengthIn35mmFormat',
+                        'DateTimeOriginal','CreateDate',
+                    ],
+                });
+
+                if (!tags || (!tags.Make && !tags.Model && !tags.FocalLength)) return null;
+
+                // Resolve lens: try every known tag in priority order
+                const lensRaw =
+                    tags.LensModel
+                    || tags.Lens
+                    || tags.LensType
+                    || tags.LensID
+                    || tags.LensInfo
+                    || tags.LensSpecification
+                    || '';
+
+                // LensInfo/LensSpecification = [minFL, maxFL, minF, maxF] array
+                let lensName = '';
+                if (Array.isArray(lensRaw) && lensRaw.length >= 4) {
+                    const [flMin, flMax, fMin, fMax] = lensRaw.map(Number);
+                    const flPart = flMin === flMax
+                        ? `${Math.round(flMin)}mm`
+                        : `${Math.round(flMin)}-${Math.round(flMax)}mm`;
+                    const fPart = (!fMin || fMin === 0)
+                        ? ''
+                        : fMin === fMax ? ` f/${fMin}` : ` f/${fMin}-${fMax}`;
+                    lensName = `${flPart}${fPart}`.trim();
+                } else {
+                    lensName = cleanStr(String(lensRaw));
+                }
+
+                // exifr returns Date objects — convert to "YYYY:MM:DD HH:MM:SS"
+                const dateRaw = tags.DateTimeOriginal || tags.CreateDate;
+                let dateStr = '';
+                if (dateRaw instanceof Date) {
+                    const pad = n => String(n).padStart(2, '0');
+                    dateStr = `${dateRaw.getFullYear()}:${pad(dateRaw.getMonth()+1)}:${pad(dateRaw.getDate())} ${pad(dateRaw.getHours())}:${pad(dateRaw.getMinutes())}:${pad(dateRaw.getSeconds())}`;
+                } else if (typeof dateRaw === 'string') {
+                    dateStr = dateRaw;
+                }
+
+                return {
+                    Make:                  cleanStr(tags.Make),
+                    Model:                 cleanStr(tags.Model),
+                    LensModel:             lensName,
+                    FNumber:               tags.FNumber        || tags.ApertureValue,
+                    ExposureTime:          tags.ExposureTime   || tags.ShutterSpeedValue,
+                    ISOSpeedRatings:       tags.ISO            || tags.ISOSpeedRatings,
+                    FocalLength:           tags.FocalLength,
+                    FocalLengthIn35mmFilm: tags.FocalLengthIn35mmFormat,
+                    DateTimeOriginal:      dateStr,
+                };
+            } catch(err) {
+                console.warn('exifr parse failed:', err);
+                return null;
+            }
+        };
         };
 
         // Build the overlay info string (pure — no side effects)
@@ -590,7 +665,8 @@
             // ── Init ──────────────────────────────────────────────────────
             useEffect(() => {
                 const poll = setInterval(() => {
-                    if (window.EXIF) { setLibsLoaded(true); clearInterval(poll); }
+                    // exifr exposes itself as window.exifr (UMD build)
+                    if (window.exifr) { setLibsLoaded(true); clearInterval(poll); }
                 }, 100);
                 try {
                     const saved = localStorage.getItem('bluer_settings');
@@ -617,17 +693,11 @@
 
             // ── Core: render one image item → { finalUrl, exif } ─────────
             const renderItem = useCallback(async (item) => {
-                // Use manualExif if available, otherwise read EXIF from file
+                // Use manualExif if provided, otherwise parse EXIF via exifr
                 let exif = item.manualExif || null;
                 if (!exif) {
                     try {
-                        const buf = await new Promise((res, rej) => {
-                            const r = new FileReader();
-                            r.onload  = e => res(e.target.result);
-                            r.onerror = rej;
-                            r.readAsArrayBuffer(item.file);
-                        });
-                        exif = readExifFromBuffer(buf);
+                        exif = await readExifFromFile(item.file);
                     } catch(_) {}
                 }
                 return new Promise((resolve) => {

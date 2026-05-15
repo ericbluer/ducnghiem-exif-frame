@@ -23,7 +23,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- exifr: modern full EXIF parser — reads MakerNote, XMP, lens tags across all brands -->
-    <script src="https://cdn.jsdelivr.net/npm/exifr@7/dist/full.umd.cjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exifr@7/dist/full.umd.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <style>
@@ -273,6 +273,9 @@
         //
         const readExifFromFile = async (file) => {
             try {
+                // Do NOT use `pick` together with makerNote — exifr skips
+                // MakerNote entirely when a pick list is active (it doesn't know
+                // which tags live inside MakerNote). Parse all, then extract what we need.
                 const tags = await window.exifr.parse(file, {
                     tiff:      true,
                     exif:      true,
@@ -282,16 +285,6 @@
                     makerNote: true,
                     ifd0:      true,
                     ifd1:      false,
-                    pick: [
-                        'Make','Model',
-                        'LensModel','Lens','LensType','LensID',
-                        'LensInfo','LensSpecification',
-                        'FNumber','ApertureValue',
-                        'ExposureTime','ShutterSpeedValue',
-                        'ISO','ISOSpeedRatings',
-                        'FocalLength','FocalLengthIn35mmFormat',
-                        'DateTimeOriginal','CreateDate',
-                    ],
                 });
 
                 if (!tags || (!tags.Make && !tags.Model && !tags.FocalLength)) return null;

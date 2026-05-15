@@ -430,29 +430,46 @@
         function HoldButton({ onStep, children, className, style }) {
             const timerRef    = useRef(null);
             const intervalRef = useRef(null);
-            // Keep ref in sync so interval always calls the latest onStep
-            const cbRef = useRef(onStep);
+            const cbRef       = useRef(onStep);
+            const isTouchRef  = useRef(false); // guard: prevent mousedown firing after touchstart
             useEffect(() => { cbRef.current = onStep; });
-
-            const start = useCallback((e) => {
-                e.preventDefault();
-                cbRef.current();
-                timerRef.current = setTimeout(() => {
-                    intervalRef.current = setInterval(() => cbRef.current(), 55);
-                }, 340);
-            }, []);
 
             const stop = useCallback(() => {
                 clearTimeout(timerRef.current);
                 clearInterval(intervalRef.current);
             }, []);
 
+            const startRepeat = useCallback(() => {
+                stop();
+                cbRef.current();
+                timerRef.current = setTimeout(() => {
+                    intervalRef.current = setInterval(() => cbRef.current(), 80);
+                }, 400);
+            }, [stop]);
+
+            const handleTouchStart = useCallback((e) => {
+                e.preventDefault();       // prevents the subsequent mousedown
+                isTouchRef.current = true;
+                startRepeat();
+            }, [startRepeat]);
+
+            const handleMouseDown = useCallback((e) => {
+                if (isTouchRef.current) return; // already handled by touch
+                startRepeat();
+            }, [startRepeat]);
+
+            const handleTouchEnd = useCallback(() => {
+                stop();
+                // Reset touch flag after a short delay (mousedown fires ~300ms after touchend)
+                setTimeout(() => { isTouchRef.current = false; }, 500);
+            }, [stop]);
+
             useEffect(() => () => stop(), [stop]);
 
             return (
                 <button className={className} style={style}
-                    onMouseDown={start} onMouseUp={stop} onMouseLeave={stop}
-                    onTouchStart={start} onTouchEnd={stop} onTouchCancel={stop}>
+                    onMouseDown={handleMouseDown} onMouseUp={stop} onMouseLeave={stop}
+                    onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd}>
                     {children}
                 </button>
             );

@@ -248,6 +248,10 @@
           <span>Dòng copyright (in lặp lại theo mép phim)</span>
           <input type="text" id="copyrightText" value="" placeholder="Để trống nếu không cần" maxlength="40">
         </label>
+        <label class="field">
+          <span>Nội dung ô trống cuối cùng (độc lập với viền phim — để trống nếu không muốn hiện gì)</span>
+          <input type="text" id="endCardText" value="" placeholder="Để trống nếu không cần" maxlength="28">
+        </label>
         <label class="field" style="margin-bottom:0;">
           <div class="toggle-row">
             <span>Hiển thị ngày chụp (định dạng DDMMYY)</span>
@@ -350,6 +354,7 @@
 
   const rollLabelInput = document.getElementById('rollLabel');
   const copyrightInput = document.getElementById('copyrightText');
+  const endCardInput = document.getElementById('endCardText');
   const showDateToggle = document.getElementById('showDate');
   const colsSel = document.getElementById('cols');
   const aspectSel = document.getElementById('aspect');
@@ -380,13 +385,15 @@
       const prefs = JSON.parse(raw);
       if (typeof prefs.rollLabel === 'string') rollLabelInput.value = prefs.rollLabel;
       if (typeof prefs.copyrightText === 'string') copyrightInput.value = prefs.copyrightText;
+      if (typeof prefs.endCardText === 'string') endCardInput.value = prefs.endCardText;
     } catch(err){ /* storage unavailable — fields just stay empty */ }
   }
   function savePrefs(){
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         rollLabel: rollLabelInput.value,
-        copyrightText: copyrightInput.value
+        copyrightText: copyrightInput.value,
+        endCardText: endCardInput.value
       }));
     } catch(err){ /* silently skip */ }
   }
@@ -412,7 +419,7 @@
     el.addEventListener('change', render);
   });
   framesPerRollInput.addEventListener('change', () => { currentRoll = 0; render(); });
-  [rollLabelInput, copyrightInput].forEach(el => {
+  [rollLabelInput, copyrightInput, endCardInput].forEach(el => {
     el.addEventListener('input', () => { render(); savePrefs(); });
   });
 
@@ -755,6 +762,8 @@
     const copyrightText = copyrightInput.value || '';
     const hasRollLabel = rollLabel.trim().length > 0;
     const hasCopyright = copyrightText.trim().length > 0;
+    const endCardText = (endCardInput.value || '').toUpperCase();
+    const hasEndCard = endCardText.trim().length > 0;
 
     const CANVAS_W = 2100;
     const MARGIN = 26;
@@ -836,12 +845,12 @@
         if (idx >= rollImages.length){
           ctx.fillStyle = th.baseDark;
           ctx.fillRect(cx, cy, cellW, cellH);
-          if (hasRollLabel){
+          if (hasEndCard){
             ctx.fillStyle = 'rgba(0,0,0,0.35)';
             ctx.font = `700 ${Math.round(cellW*0.11)}px 'Inter', sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(rollLabel, cx+cellW/2, cy+cellH/2);
+            ctx.fillText(endCardText, cx+cellW/2, cy+cellH/2);
           }
           continue;
         }

@@ -245,16 +245,16 @@
           <input type="text" id="rollLabel" value="" placeholder="Để trống nếu không cần" maxlength="28">
         </label>
         <label class="field">
-          <span>Dòng copyright (in lặp lại theo mép phim)</span>
+          <span>Dòng copyright</span>
           <input type="text" id="copyrightText" value="" placeholder="Để trống nếu không cần" maxlength="40">
         </label>
         <label class="field">
-          <span>Nội dung ô trống cuối cùng (độc lập với viền phim — để trống nếu không muốn hiện gì)</span>
+          <span>Nội dung ô trống cuối cùng</span>
           <input type="text" id="endCardText" value="" placeholder="Để trống nếu không cần" maxlength="28">
         </label>
         <label class="field" style="margin-bottom:0;">
           <div class="toggle-row">
-            <span>Hiển thị ngày chụp (định dạng DDMMYY)</span>
+            <span>Hiển thị ngày chụp</span>
             <label class="switch">
               <input type="checkbox" id="showDate" checked>
               <span class="track"><span class="knob"></span></span>
@@ -284,7 +284,7 @@
           </label>
         </div>
         <label class="field">
-          <span>Số ảnh tối đa mỗi cuộn (mặc định 36, giống phim 35mm thật — ảnh nhiều hơn sẽ tự tách sang cuộn tiếp theo)</span>
+          <span>Số ảnh tối đa mỗi cuộn</span>
           <input type="number" id="framesPerRoll" value="36" min="6" max="60" step="1">
         </label>
         <label class="field">
@@ -303,7 +303,7 @@
           <button class="btn btn-ghost" id="downloadAllBtn" style="display:none;">Xuất tất cả các cuộn</button>
           <button class="btn btn-ghost" id="clearBtn">Xóa tất cả ảnh</button>
         </div>
-        <div class="hint-small" id="exportHint">Trên điện thoại, sau khi bấm "Xuất contact sheet" sẽ hiện bảng chia sẻ — chọn <b>Lưu vào Ảnh</b> (hoặc tương đương) để lưu thẳng vào Photo Library.</div>
+        <div class="hint-small" id="exportHint">Trên điện thoại, sau khi bấm "Xuất contact sheet" sẽ hiện bảng chia sẻ — chọn <b>Lưu vào Ảnh</b> để lưu thẳng vào Photo Library.</div>
       </div>
     </div>
 
@@ -434,51 +434,58 @@
   rollNext.addEventListener('click', () => { if (currentRoll < getRolls().length-1){ currentRoll++; render(); } });
 
   // ---------- File loading: downscale immediately so many large photos don't blow up memory ----------
+  // Placeholders are created synchronously, in the exact order the browser handed us the files,
+  // then filled in place as each one decodes — so no amount of async timing can ever reorder them.
   async function handleFiles(fileList){
     const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
     if (!files.length) return;
+
+    const startLen = images.length;
+    const entries = files.map(file => ({
+      id: 'img' + (uid++),
+      work: null,
+      thumbSrc: null,
+      name: file.name,
+      exifDate: null,
+      hasExif: false,
+      manualDate: null,
+      _rotated: null,
+      loading: true
+    }));
+    images.push(...entries);
+    refreshThumbs();
+    render();
+
     loadStatus.style.display = 'block';
-    let done = 0;
-    for (const file of files){
-      loadStatus.textContent = `Đang xử lý ảnh ${done+1}/${files.length}…`;
+    for (let i=0;i<files.length;i++){
+      loadStatus.textContent = `Đang xử lý ảnh ${i+1}/${files.length}`;
       try{
-        await loadOneFile(file);
+        await fillEntry(files[i], entries[i]);
       } catch(err){
-        console.error('Không thể tải ảnh', file.name, err);
+        console.error('Không thể tải ảnh', files[i].name, err);
       }
-      done++;
-      refreshThumbs();
+      entries[i].loading = false;
+      updateThumb(entries[i]);
       render();
     }
     loadStatus.style.display = 'none';
+    void startLen;
   }
 
-  function loadOneFile(file){
+  function fillEntry(file, entry){
     return new Promise((resolve) => {
       const objUrl = URL.createObjectURL(file);
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         try{
-          const work = downscaleToCanvas(img, MAX_WORK_DIM);
+          entry.work = downscaleToCanvas(img, MAX_WORK_DIM);
           const thumb = downscaleToCanvas(img, MAX_THUMB_DIM);
-          const entry = {
-            id: 'img' + (uid++),
-            work,
-            thumbSrc: thumb.toDataURL('image/jpeg', 0.7),
-            name: file.name,
-            exifDate: null,
-            hasExif: false,
-            manualDate: null,
-            _rotated: null
-          };
-          images.push(entry);
-          // read the EXIF date straight from the file bytes — independent of
-          // the decoded/downscaled image above, so it's cheap even for many files
-          extractExifDate(file, entry).then(() => { refreshThumbs(); render(); });
+          entry.thumbSrc = thumb.toDataURL('image/jpeg', 0.7);
         } finally {
           URL.revokeObjectURL(objUrl);
-          resolve();
         }
+        await extractExifDate(file, entry);
+        resolve();
       };
       img.onerror = () => { URL.revokeObjectURL(objUrl); resolve(); };
       img.src = objUrl;
@@ -624,45 +631,122 @@
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  function refreshThumbs(){
-    thumbsEl.innerHTML = '';
-    emptyHint.style.display = images.length ? 'none' : 'block';
-    images.forEach((entry, idx) => {
-      const li = document.createElement('li');
-      const eDate = effectiveDate(entry);
-      const dateLabel = entry.hasExif && eDate ? `EXIF: ${formatDDMMYY(eDate)}` : (eDate ? `Thủ công: ${formatDDMMYY(eDate)}` : 'Không có ngày chụp (EXIF trống)');
+  const thumbLiById = new Map();
 
+  function buildThumbLi(entry){
+    const li = document.createElement('li');
+    li.dataset.id = entry.id;
+    fillThumbLi(li, entry);
+    return li;
+  }
+
+  function fillThumbLi(li, entry){
+    if (entry.loading){
       li.innerHTML = `
-        <img src="${entry.thumbSrc}">
+        <div style="width:38px;height:38px;border-radius:5px;background:var(--line);flex:none;"></div>
         <div class="meta">
           <div class="name">${entry.name}</div>
-          <div class="date">${dateLabel}</div>
-          ${!entry.hasExif ? `<div class="manual-date"><input type="date" data-act="manual-date" value="${entry.manualDate ? toInputDateValue(entry.manualDate) : ''}"></div>` : ''}
-        </div>
-        <div class="actions">
-          <button data-act="up" title="Lên">↑</button>
-          <button data-act="down" title="Xuống">↓</button>
-          <button data-act="del" title="Xóa">×</button>
+          <div class="date">Đang xử lý…</div>
         </div>`;
-      li.querySelector('[data-act=up]').addEventListener('click', () => { if(idx>0){ [images[idx-1],images[idx]]=[images[idx],images[idx-1]]; refreshThumbs(); render(); } });
-      li.querySelector('[data-act=down]').addEventListener('click', () => { if(idx<images.length-1){ [images[idx+1],images[idx]]=[images[idx],images[idx+1]]; refreshThumbs(); render(); } });
-      li.querySelector('[data-act=del]').addEventListener('click', () => { images.splice(idx,1); refreshThumbs(); render(); });
-      const manualInput = li.querySelector('[data-act=manual-date]');
-      if (manualInput){
-        manualInput.addEventListener('change', () => {
-          if (manualInput.value){
-            const [yyyy, mm, dd] = manualInput.value.split('-').map(Number);
-            entry.manualDate = new Date(yyyy, mm-1, dd);
-          } else {
-            entry.manualDate = null;
-          }
-          refreshThumbs();
-          render();
-        });
-      }
-      thumbsEl.appendChild(li);
-    });
+      return;
+    }
+    const eDate = effectiveDate(entry);
+    const dateLabel = entry.hasExif && eDate ? `EXIF: ${formatDDMMYY(eDate)}` : (eDate ? `Thủ công: ${formatDDMMYY(eDate)}` : 'Không có ngày chụp EXIF');
+
+    li.innerHTML = `
+      <img src="${entry.thumbSrc}">
+      <div class="meta">
+        <div class="name">${entry.name}</div>
+        <div class="date">${dateLabel}</div>
+        ${!entry.hasExif ? `<div class="manual-date"><input type="date" data-act="manual-date" value="${entry.manualDate ? toInputDateValue(entry.manualDate) : ''}"></div>` : ''}
+      </div>
+      <div class="actions">
+        <button data-act="up" title="Lên">↑</button>
+        <button data-act="down" title="Xuống">↓</button>
+        <button data-act="del" title="Xóa">×</button>
+      </div>`;
+
+    const manualInput = li.querySelector('[data-act=manual-date]');
+    if (manualInput){
+      manualInput.addEventListener('change', () => {
+        if (manualInput.value){
+          const [yyyy, mm, dd] = manualInput.value.split('-').map(Number);
+          entry.manualDate = new Date(yyyy, mm-1, dd);
+        } else {
+          entry.manualDate = null;
+        }
+        fillThumbLi(li, entry);
+        render();
+      });
+    }
   }
+
+  // Full rebuild — only needed when the list composition actually changes
+  // (initial load placeholders, clear-all). Reordering and single-item
+  // updates use the fast paths below instead.
+  function refreshThumbs(){
+    thumbsEl.innerHTML = '';
+    thumbLiById.clear();
+    emptyHint.style.display = images.length ? 'none' : 'block';
+    const frag = document.createDocumentFragment();
+    images.forEach(entry => {
+      const li = buildThumbLi(entry);
+      thumbLiById.set(entry.id, li);
+      frag.appendChild(li);
+    });
+    thumbsEl.appendChild(frag);
+  }
+
+  // Refresh a single row's content in place (e.g. once its decode/EXIF finishes)
+  function updateThumb(entry){
+    const li = thumbLiById.get(entry.id);
+    if (li) fillThumbLi(li, entry);
+  }
+
+  // Re-order the existing DOM nodes to match the `images` array without
+  // recreating anything — appendChild on an existing node just moves it,
+  // so this is a single cheap pass even with dozens of items.
+  function reorderThumbDom(){
+    const frag = document.createDocumentFragment();
+    images.forEach(entry => {
+      const li = thumbLiById.get(entry.id);
+      if (li) frag.appendChild(li);
+    });
+    thumbsEl.appendChild(frag);
+  }
+
+  function swapImages(i, j){
+    [images[i], images[j]] = [images[j], images[i]];
+    reorderThumbDom();
+    render();
+  }
+
+  function removeImageById(id){
+    const idx = images.findIndex(en => en.id === id);
+    if (idx === -1) return;
+    images.splice(idx, 1);
+    const li = thumbLiById.get(id);
+    if (li) li.remove();
+    thumbLiById.delete(id);
+    emptyHint.style.display = images.length ? 'none' : 'block';
+    render();
+  }
+
+  // Single delegated listener instead of per-row listeners — stays fast and
+  // never goes stale, since it always resolves the current index by id.
+  thumbsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const li = btn.closest('li');
+    const id = li && li.dataset.id;
+    if (!id) return;
+    const idx = images.findIndex(en => en.id === id);
+    if (idx === -1) return;
+    const act = btn.dataset.act;
+    if (act === 'up' && idx > 0) swapImages(idx, idx-1);
+    else if (act === 'down' && idx < images.length-1) swapImages(idx, idx+1);
+    else if (act === 'del') removeImageById(id);
+  });
 
   // ---------- Roll pagination (default 36 frames, like a real 35mm roll) ----------
   function getFramesPerRoll(){
@@ -698,7 +782,9 @@
     ctx.closePath();
   }
 
+  const _grainCache = {};
   function grainPattern(){
+    if (_grainCache[theme]) return _grainCache[theme];
     const t = document.createElement('canvas');
     t.width = 120; t.height = 120;
     const tc = t.getContext('2d');
@@ -707,7 +793,9 @@
       tc.globalAlpha = Math.random()*0.6+0.1;
       tc.fillRect(Math.random()*120, Math.random()*120, 1, 1);
     }
-    return ctx.createPattern(t, 'repeat');
+    const pattern = ctx.createPattern(t, 'repeat');
+    _grainCache[theme] = pattern;
+    return pattern;
   }
 
   function rotateCanvas90(source){
@@ -855,6 +943,15 @@
           continue;
         }
         const entry = rollImages[idx];
+        if (!entry.work){
+          // still decoding/downscaling — show a neutral placeholder instead of erroring
+          ctx.fillStyle = th.baseDark;
+          ctx.fillRect(cx, cy, cellW, cellH);
+          ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(cx+1, cy+1, cellW-2, cellH-2);
+          continue;
+        }
         const source = getOrientedSource(entry, cellIsLandscape);
         drawCover(source, cx, cy, cellW, cellH, theme === 'mono');
         ctx.strokeStyle = 'rgba(0,0,0,0.5)';
